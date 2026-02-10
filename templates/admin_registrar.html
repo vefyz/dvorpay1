@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистратор паспортов - DvorPay</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="header-content glass">
+                <a href="/admin" class="logo">
+                    <i class="fas fa-passport logo-icon"></i>
+                    <span class="logo-text">Регистратор Паспортов</span>
+                </a>
+                
+                <div class="nav">
+                    <div class="user-info">
+                        <span class="user-name">{{ session.user_info.full_name }}</span>
+                        <span class="role-badge registrar">Регистратор</span>
+                    </div>
+                    <a href="/admin/register_user" class="btn btn-secondary">
+                        <i class="fas fa-user-plus"></i> Регистрация
+                    </a>
+                    <a href="/admin/users/view" class="btn btn-secondary">
+                        <i class="fas fa-list"></i> Список
+                    </a>
+                    <a href="/logout" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt"></i> Выйти
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="main">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="admin-stats">
+                <div class="admin-stat-card glass">
+                    <h3><i class="fas fa-passport"></i> Регистратор паспортов</h3>
+                    <p>Регистрация новых пользователей и просмотр данных</p>
+                </div>
+            </div>
+
+            <!-- Форма регистрации -->
+            <div class="section fade-in">
+                <div class="section-header">
+                    <h2><i class="fas fa-user-plus"></i> Регистрация нового пользователя</h2>
+                </div>
+                <div class="section-content">
+                    <form method="POST" action="/admin/register_user_action" class="user-form">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="passport">Номер паспорта *</label>
+                                <input type="text" id="passport" name="passport" required
+                                       pattern="[0-9]{6}" title="6 цифр">
+                            </div>
+                            <div class="form-group">
+                                <label for="full_name">ФИО *</label>
+                                <input type="text" id="full_name" name="full_name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="initial_balance">Начальный баланс</label>
+                                <input type="number" id="initial_balance" name="initial_balance" 
+                                       value="1000" min="0" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label for="password">Пароль *</label>
+                                <input type="password" id="password" name="password" required
+                                       minlength="6">
+                            </div>
+                            <div class="form-group">
+                                <label for="email">Email</label>
+                                <input type="email" id="email" name="email">
+                            </div>
+                            <div class="form-group">
+                                <label for="phone">Телефон</label>
+                                <input type="tel" id="phone" name="phone">
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="reset" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Очистить
+                            </button>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save"></i> Зарегистрировать
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Последние зарегистрированные -->
+            <div class="section fade-in">
+                <div class="section-header">
+                    <h2><i class="fas fa-history"></i> Последние регистрации</h2>
+                </div>
+                <div class="section-content">
+                    <div id="recentRegistrations"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <style>
+    .role-badge.registrar {
+        background: linear-gradient(135deg, #2ecc71, #27ae60);
+        color: white;
+    }
+    </style>
+
+    <script>
+    async function loadRecentRegistrations() {
+        try {
+            const response = await fetch('/admin/api/recent_registrations');
+            const data = await response.json();
+            
+            const container = document.getElementById('recentRegistrations');
+            
+            if (data.error) {
+                container.innerHTML = `<p class="error">${data.error}</p>`;
+                return;
+            }
+            
+            if (data.length === 0) {
+                container.innerHTML = '<p class="no-data">Нет зарегистрированных пользователей</p>';
+                return;
+            }
+            
+            let html = '<div class="table-container"><table class="users-table">';
+            html += '<thead><tr><th>Паспорт</th><th>ФИО</th><th>Дата регистрации</th><th>Баланс</th></tr></thead><tbody>';
+            
+            data.forEach(user => {
+                html += `<tr>
+                    <td>${user.passport}</td>
+                    <td>${user.full_name}</td>
+                    <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                    <td>${user.balance} ₽</td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        } catch (error) {
+            console.error('Ошибка загрузки регистраций:', error);
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', loadRecentRegistrations);
+    </script>
+</body>
+</html>

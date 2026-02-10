@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Изменение роли - DvorPay</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .user-info-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: var(--radius-sm);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border-glass);
+        }
+        
+        .user-info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .role-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        
+        .role-option {
+            padding: 1.5rem;
+            border-radius: var(--radius-sm);
+            background: rgba(255,255,255,0.05);
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .role-option:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateY(-2px);
+        }
+        
+        .role-option.selected {
+            border-color: var(--secondary);
+            background: rgba(0,212,170,0.1);
+        }
+        
+        .role-level {
+            display: inline-block;
+            padding: 3px 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin-left: 10px;
+        }
+        
+        .role-description {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+        
+        input[type="radio"] {
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .role-options {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="header-content glass">
+                <a href="/admin" class="logo">
+                    <i class="fas fa-university logo-icon"></i>
+                    <span class="logo-text">DvorPay</span>
+                </a>
+                
+                <div class="nav">
+                    <div class="user-info">
+                        <span class="user-name">Администратор</span>
+                    </div>
+                    <a href="/admin/users" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i>
+                        К списку пользователей
+                    </a>
+                    <a href="/logout" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Выйти
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="main">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="section fade-in">
+                <div class="section-header">
+                    <h2><i class="fas fa-user-tag"></i> Изменение должности пользователя</h2>
+                </div>
+                <div class="section-content">
+                    <!-- Информация о пользователе -->
+                    <div class="user-info-card">
+                        <h3>Информация о пользователе</h3>
+                        <div class="user-info-row">
+                            <span>ФИО:</span>
+                            <strong>{{ user.full_name }}</strong>
+                        </div>
+                        <div class="user-info-row">
+                            <span>Паспорт:</span>
+                            <code>{{ user.passport }}</code>
+                        </div>
+                        <div class="user-info-row">
+                            <span>Счет:</span>
+                            <code>{{ user.account_number }}</code>
+                        </div>
+                        <div class="user-info-row">
+                            <span>Текущая роль:</span>
+                            <span class="status-badge {{ 'active' if current_role else 'blocked' }}">
+                                {{ current_role.role_name if current_role else 'Неизвестно' }}
+                                <span class="role-level">Уровень: {{ current_role.level if current_role else 0 }}</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Выбор новой роли -->
+                    <form method="POST" action="/admin/change_role/{{ user.passport }}">
+                        <h3>Выберите новую роль:</h3>
+                        
+                        <div class="role-options" id="roleOptions">
+                            {% for role in roles %}
+                            <label class="role-option {{ 'selected' if role.id == user.role_id else '' }}">
+                                <input type="radio" name="role_id" value="{{ role.id }}" 
+                                       {{ 'checked' if role.id == user.role_id else '' }}>
+                                <div class="role-header">
+                                    <h4>{{ role.role_name }}</h4>
+                                    <span class="role-level">Уровень: {{ role.level }}</span>
+                                </div>
+                                <div class="role-description">
+                                    {{ role.description }}
+                                </div>
+                            </label>
+                            {% endfor %}
+                        </div>
+
+                        <div class="form-actions" style="margin-top: 2rem;">
+                            <a href="/admin/users" class="btn btn-secondary">
+                                <i class="fas fa-times"></i>
+                                Отмена
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save"></i>
+                                Сохранить изменения
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    // Выбор роли
+    document.querySelectorAll('.role-option').forEach(option => {
+        option.addEventListener('click', function() {
+            // Снимаем выделение со всех
+            document.querySelectorAll('.role-option').forEach(o => {
+                o.classList.remove('selected');
+            });
+            
+            // Выделяем текущую
+            this.classList.add('selected');
+            
+            // Активируем радиокнопку
+            const radio = this.querySelector('input[type="radio"]');
+            if (radio) {
+                radio.checked = true;
+            }
+        });
+    });
+    
+    // Предупреждение при изменении суперадмина
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const selectedRole = document.querySelector('input[name="role_id"]:checked');
+        if (selectedRole && selectedRole.value !== "{{ user.role_id }}") {
+            const roleName = document.querySelector('.role-option.selected h4').textContent;
+            const userName = "{{ user.full_name }}";
+            
+            if (!confirm(`Вы уверены, что хотите изменить роль пользователя "${userName}" на "${roleName}"?`)) {
+                e.preventDefault();
+                return false;
+            }
+        }
+        return true;
+    });
+    </script>
+</body>
+</html>

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}DvorPay{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Бургер-меню для всех страниц */
+        .burger-menu {
+            display: none;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .mobile-nav {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            flex-direction: column;
+            padding: 1rem;
+            gap: 0.5rem;
+            z-index: 1000;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .mobile-nav.active {
+            display: flex;
+        }
+
+        .mobile-user-info {
+            display: none;
+            text-align: center;
+            margin-bottom: 1rem;
+            font-weight: 600;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .burger-menu {
+                display: block;
+            }
+
+            .nav .btn:not(.burger-menu) {
+                display: none;
+            }
+
+            .user-info {
+                display: none;
+            }
+
+            .mobile-user-info {
+                display: block;
+            }
+
+            .mobile-nav .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            /* Добавим в конец файла */
+.glass-bg {
+    background: var(--glass);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(10px);
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    width: 90%;
+    max-width: 800px;
+    max-height: 80vh;
+    overflow-y: auto;
+    border-radius: var(--radius);
+    animation: slideUp 0.3s ease;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--border-glass);
+}
+
+.modal-body {
+    padding: 2rem;
+}
+
+textarea {
+    width: 100%;
+    padding: 1rem;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border-glass);
+    color: var(--text);
+    font-size: 1rem;
+    resize: vertical;
+    min-height: 100px;
+}
+
+textarea:focus {
+    outline: none;
+    border-color: var(--secondary);
+}
+        }
+    </style>
+</head>
+<body>
+    {% block header %}
+    <div class="header">
+        <div class="container">
+            <div class="header-content glass">
+                <a href="/dashboard" class="logo">
+                    <i class="fas fa-university logo-icon"></i>
+                    <span class="logo-text">DvorPay</span>
+                </a>
+
+                <div class="nav">
+                    {% if session.user_info %}
+                    <div class="user-info">
+                        <span class="user-name">{{ session.user_info.full_name }}</span>
+                    </div>
+                    {% endif %}
+
+                    {% block nav_buttons %}{% endblock %}
+
+                    <button class="burger-menu" id="burgerMenu">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Мобильное меню -->
+        <div class="mobile-nav" id="mobileNav">
+            {% if session.user_info %}
+            <div class="mobile-user-info">
+                {{ session.user_info.full_name }}
+            </div>
+            {% endif %}
+            {% block mobile_nav_buttons %}{% endblock %}
+        </div>
+    </div>
+    {% endblock %}
+
+    <main class="main">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <script>
+        // Бургер-меню для header
+        document.getElementById('burgerMenu').addEventListener('click', function() {
+            document.getElementById('mobileNav').classList.toggle('active');
+        });
+
+        // Закрытие мобильного меню при клике вне его
+        document.addEventListener('click', function(event) {
+            const mobileNav = document.getElementById('mobileNav');
+            const burgerMenu = document.getElementById('burgerMenu');
+            if (mobileNav && burgerMenu && !mobileNav.contains(event.target) && !burgerMenu.contains(event.target)) {
+                mobileNav.classList.remove('active');
+            }
+        });
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление NFC-метками - DvorPay</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .url-copy {
+            width: 250px;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        
+        .pin-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: rgba(0,212,170,0.2);
+            border: 1px solid rgba(0,212,170,0.5);
+            border-radius: 4px;
+            color: #00d4aa;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }/* Стили для поиска пользователей */
+.search-input {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid var(--border-glass);
+    color: white;
+}
+
+.search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.9);
+    border-radius: 8px;
+    margin-top: 5px;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+    border: 1px solid var(--border-glass);
+}
+
+.search-result {
+    padding: 12px 15px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.search-result:hover {
+    background: rgba(0,212,170,0.2);
+}
+
+.search-result .user-name {
+    font-weight: 600;
+    color: white;
+}
+
+.search-result .user-passport {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+.search-result .user-account {
+    font-size: 0.85em;
+    color: var(--primary-light);
+    margin-top: 2px;
+}
+
+.no-results {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.selected-user {
+    margin-top: 10px;
+}
+
+.selected-user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: rgba(0,212,170,0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(0,212,170,0.3);
+}
+
+.selected-user-info i {
+    color: var(--secondary);
+}
+
+.btn-clear {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 5px;
+}
+
+.btn-clear:hover {
+    color: #ff6b6b;
+}
+
+.uid-input-group {
+    display: flex;
+    gap: 10px;
+}
+
+.uid-input-group input {
+    flex: 1;
+}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="header-content glass">
+                <a href="/admin" class="logo">
+                    <i class="fas fa-university logo-icon"></i>
+                    <span class="logo-text">DvorPay</span>
+                </a>
+                
+                <div class="nav">
+                    <div class="user-info">
+                        <span class="user-name">Администратор</span>
+                    </div>
+                    <a href="/admin" class="btn btn-secondary">
+                        <i class="fas fa-tachometer-alt"></i>
+                        Панель управления
+                    </a>
+                    <a href="/admin/users" class="btn btn-secondary">
+                        <i class="fas fa-users"></i>
+                        Пользователи
+                    </a>
+                    <a href="/logout" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Выйти
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="main">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Форма регистрации NFC-метки -->
+<div class="section fade-in">
+    <div class="section-header">
+        <h2><i class="fas fa-plus-circle"></i> Регистрация новой NFC-метки</h2>
+    </div>
+    <div class="section-content">
+        <form method="POST" action="/admin/nfc" class="user-form">
+            <input type="hidden" name="action" value="register">
+            
+            <div class="form-grid">
+                <!-- Поиск пользователя -->
+                <div class="form-group">
+                    <label for="user_search">Поиск пользователя *</label>
+                    <div style="position: relative;">
+                        <input type="text" id="user_search" 
+                               placeholder="Введите паспорт или ФИО"
+                               class="search-input"
+                               autocomplete="off">
+                        <div id="searchResults" class="search-results"></div>
+                    </div>
+                    <input type="hidden" id="passport" name="passport" required>
+                    <div id="selectedUser" class="selected-user"></div>
+                </div>
+                
+                <!-- Поле UID -->
+                <div class="form-group">
+                    <label for="tag_uid">UID NFC-метки</label>
+                    <div class="uid-input-group">
+                        <input type="text" id="tag_uid" name="tag_uid" 
+                               placeholder="Оставьте пустым для автогенерации"
+                               pattern="[A-Fa-f0-9]+" title="Только HEX-символы">
+                        <button type="button" onclick="generateUID()" class="btn btn-sm btn-secondary">
+                            <i class="fas fa-random"></i> Сгенерировать
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- PIN-код -->
+                <div class="form-group">
+                    <label for="pin_code">PIN-код (4 цифры)</label>
+                    <input type="text" id="pin_code" name="pin_code" 
+                           placeholder="0000" pattern="[0-9]{4}" 
+                           title="4 цифры" value="0000" maxlength="4">
+                    <small>По умолчанию: 0000</small>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-save"></i>
+                    Зарегистрировать метку
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+            <!-- Список NFC-меток -->
+            <div class="section fade-in">
+                <div class="section-header">
+                    <h2><i class="fas fa-list"></i> Зарегистрированные NFC-метки</h2>
+                </div>
+                <div class="section-content">
+                    <div class="table-container">
+                        <table class="users-table">
+                            <thead>
+                                <tr>
+                                    <th>UID метки</th>
+                                    <th>Пользователь</th>
+                                    <th>Паспорт</th>
+                                    <th>Ссылка для оплаты</th>
+                                    <th>PIN-код</th>
+                                    <th>Статус</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if nfc_tags %}
+                                    {% for tag in nfc_tags %}
+                                    <tr class="{{ 'inactive' if not tag.is_active else '' }}">
+                                        <td><code>{{ tag.tag_uid }}</code></td>
+                                        <td>{{ tag.full_name }}</td>
+                                        <td>{{ tag.passport }}</td>
+                                        <td>
+                                            <input type="text" readonly 
+                                                   value="{{ request.host_url[:-1] }}{{ tag.tag_url }}"
+                                                   class="url-copy"
+                                                   id="url_{{ tag.id }}">
+                                            <button onclick="copyToClipboard('url_{{ tag.id }}')" 
+                                                    class="btn btn-sm btn-secondary">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                        </td>
+                                        <td>
+                                            {% if tag.pin_hash %}
+                                                <span class="pin-badge">PIN установлен</span>
+                                            {% else %}
+                                                <span style="color: #ff6b6b;">Не установлен</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if tag.is_active %}
+                                                <span class="status-badge active">Активна</span>
+                                            {% else %}
+                                                <span class="status-badge blocked">Неактивна</span>
+                                            {% endif %}
+                                        </td>
+                                        <!-- В таблице измените последнюю колонку -->
+<td class="table-actions">
+    <!-- Кнопка активации/деактивации -->
+    <form method="POST" action="/admin/nfc" style="display: inline;">
+        <input type="hidden" name="action" value="toggle">
+        <input type="hidden" name="tag_id" value="{{ tag.id }}">
+        <button type="submit" class="btn btn-sm {{ 'btn-warning' if tag.is_active else 'btn-success' }}">
+            <i class="fas fa-{{ 'ban' if tag.is_active else 'check' }}"></i>
+            {{ 'Деакт.' if tag.is_active else 'Акт.' }}
+        </button>
+    </form>
+    
+    <!-- Кнопка подробнее -->
+    <a href="/admin/nfc/details/{{ tag.id }}" class="btn btn-sm btn-info">
+        <i class="fas fa-eye"></i>
+        Подробнее
+    </a>
+    
+    <!-- Кнопка удаления -->
+    <form method="POST" action="/admin/nfc" style="display: inline;" 
+          onsubmit="return confirm('Удалить NFC-метку?')">
+        <input type="hidden" name="action" value="delete">
+        <input type="hidden" name="tag_id" value="{{ tag.id }}">
+        <button type="submit" class="btn btn-sm btn-danger">
+            <i class="fas fa-trash"></i>
+            Удалить
+        </button>
+    </form>
+</td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="7" class="no-data">
+                                            <i class="fas fa-credit-card"></i>
+                                            <p>Нет зарегистрированных NFC-меток</p>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    function copyToClipboard(elementId) {
+        const element = document.getElementById(elementId);
+        element.select();
+        element.setSelectionRange(0, 99999);
+        
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                const button = event.target.closest('button');
+                const originalHTML = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-check"></i>';
+                button.classList.remove('btn-secondary');
+                button.classList.add('btn-success');
+                
+                setTimeout(() => {
+                    button.innerHTML = originalHTML;
+                    button.classList.remove('btn-success');
+                    button.classList.add('btn-secondary');
+                }, 2000);
+            }
+        } catch (err) {
+            console.error('Ошибка копирования:', err);
+        }
+    }
+// Поиск пользователей
+let searchTimeout;
+
+document.getElementById('user_search').addEventListener('input', function(e) {
+    clearTimeout(searchTimeout);
+    const query = e.target.value.trim();
+    const resultsDiv = document.getElementById('searchResults');
+    
+    if (query.length < 2) {
+        resultsDiv.innerHTML = '';
+        resultsDiv.style.display = 'none';
+        return;
+    }
+    
+    searchTimeout = setTimeout(async () => {
+        try {
+            const response = await fetch(`/admin/api/search_users?q=${encodeURIComponent(query)}`);
+            const users = await response.json();
+            
+            if (users.length === 0) {
+                resultsDiv.innerHTML = '<div class="no-results">Пользователи не найдены</div>';
+            } else {
+                resultsDiv.innerHTML = users.map(user => `
+                    <div class="search-result" onclick="selectUser('${user.passport}', '${user.full_name}')">
+                        <div class="user-name">${user.full_name}</div>
+                        <div class="user-passport">${user.passport}</div>
+                        <div class="user-account">${user.account_number}</div>
+                    </div>
+                `).join('');
+            }
+            resultsDiv.style.display = 'block';
+        } catch (error) {
+            console.error('Ошибка поиска:', error);
+        }
+    }, 300);
+});
+
+    // Выбор пользователя
+function selectUser(passport, fullName) {
+    document.getElementById('passport').value = passport;
+    document.getElementById('user_search').value = '';
+    document.getElementById('searchResults').style.display = 'none';
+    
+    const selectedDiv = document.getElementById('selectedUser');
+    selectedDiv.innerHTML = `
+        <div class="selected-user-info">
+            <i class="fas fa-user-check"></i>
+            <span><strong>${fullName}</strong> (${passport})</span>
+            <button type="button" onclick="clearSelection()" class="btn-clear">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+}
+
+// Очистка выбора
+function clearSelection() {
+    document.getElementById('passport').value = '';
+    document.getElementById('selectedUser').innerHTML = '';
+}
+
+// Генерация UID
+function generateUID() {
+    const chars = 'ABCDEF0123456789';
+    let uid = '';
+    for (let i = 0; i < 16; i++) {
+        uid += chars[Math.floor(Math.random() * chars.length)];
+        if (i % 4 === 3 && i < 15) uid += '';
+    }
+    document.getElementById('tag_uid').value = uid;
+}
+
+// Закрытие результатов поиска при клике вне
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.search-input')) {
+        document.getElementById('searchResults').style.display = 'none';
+    }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Прием оплаты - DvorPay</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="header-content glass">
+                <a href="/dashboard" class="logo">
+                    <i class="fas fa-store logo-icon"></i>
+                    <span class="logo-text">Прием оплаты</span>
+                </a>
+                <div class="nav">
+                    <a href="/dashboard" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Назад
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="main">
+        <div class="container">
+            <div class="section">
+                <div class="section-header">
+                    <h2><i class="fas fa-qrcode"></i> Прием оплаты по NFC</h2>
+                    <p>Покажите QR-код клиенту для оплаты</p>
+                </div>
+                
+                <div class="section-content">
+                    <div class="payment-info glass">
+                        <h3>Информация для оплаты:</h3>
+                        <p><strong>Бизнес:</strong> {{ user.full_name }}</p>
+                        <p><strong>Счет:</strong> {{ user.account_number }}</p>
+                        
+                        <div class="qr-code-container">
+                            <div id="qrCode"></div>
+                        </div>
+                        
+                        <div class="amount-input">
+                            <label for="amount">Сумма оплаты:</label>
+                            <div class="input-group">
+                                <input type="number" id="amount" min="1" step="0.01" placeholder="Введите сумму">
+                                <span class="input-group-text">₽</span>
+                            </div>
+                            <button id="generateQr" class="btn btn-primary">
+                                <i class="fas fa-sync-alt"></i> Обновить QR-код
+                            </button>
+                        </div>
+                        
+                        <div class="payment-instructions">
+                            <h4>Инструкция для клиента:</h4>
+                            <ol>
+                                <li>Клиент сканирует QR-код</li>
+                                <li>Открывается страница оплаты</li>
+                                <li>Клиент прикладывает NFC-карту</li>
+                                <li>Вводит PIN-код</li>
+                                <li>Средства переводятся на ваш счет</li>
+                            </ol>
+                        </div>
+                    </div>
+                    
+                    <div class="recent-transactions">
+                        <h3>Последние платежи:</h3>
+                        <div id="recentPayments"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script>
+        let currentQr = null;
+        
+        function generateQrCode() {
+            const amount = document.getElementById('amount').value;
+            if (!amount || amount <= 0) {
+                alert('Введите корректную сумму');
+                return;
+            }
+            
+            // Создаем URL для оплаты
+            const paymentUrl = `${window.location.origin}/nfc/pay/amount/${amount}`;
+            
+            // Генерируем QR-код
+            if (currentQr) {
+                currentQr.clear();
+            }
+            
+            const qrContainer = document.getElementById('qrCode');
+            qrContainer.innerHTML = '';
+            
+            currentQr = new QRCode(qrContainer, {
+                text: paymentUrl,
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+            
+            // Сохраняем в сессию
+            fetch('/api/nfc/create_payment_session', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ amount: amount })
+            });
+        }
+        
+        document.getElementById('generateQr').addEventListener('click', generateQrCode);
+        
+        // Загружаем последние платежи
+        async function loadRecentPayments() {
+            const response = await fetch('/api/nfc/recent_payments');
+            const payments = await response.json();
+            
+            const container = document.getElementById('recentPayments');
+            if (payments.length > 0) {
+                let html = '<table class="transactions-table"><thead><tr><th>Дата</th><th>Клиент</th><th>Сумма</th></tr></thead><tbody>';
+                
+                payments.forEach(payment => {
+                    html += `<tr>
+                        <td>${new Date(payment.date).toLocaleString()}</td>
+                        <td>${payment.buyer_name || 'Клиент'}</td>
+                        <td>${payment.amount} ₽</td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = '<p>Пока нет платежей</p>';
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', loadRecentPayments);
+        setInterval(loadRecentPayments, 30000); // Обновляем каждые 30 секунд
+    </script>
+</body>
+</html>

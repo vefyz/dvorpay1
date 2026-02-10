@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Цифровой следователь - DvorPay</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="header-content glass">
+                <a href="/admin" class="logo">
+                    <i class="fas fa-search logo-icon"></i>
+                    <span class="logo-text">Цифровой Следователь</span>
+                </a>
+                
+                <div class="nav">
+                    <div class="user-info">
+                        <span class="user-name">{{ session.user_info.full_name }}</span>
+                        <span class="role-badge investigator">Следователь</span>
+                    </div>
+                    <a href="/admin/transactions" class="btn btn-secondary">
+                        <i class="fas fa-exchange-alt"></i> Транзакции
+                    </a>
+                    <a href="/admin/audit" class="btn btn-secondary">
+                        <i class="fas fa-history"></i> Аудит
+                    </a>
+                    <a href="/admin/reports" class="btn btn-secondary">
+                        <i class="fas fa-chart-bar"></i> Отчеты
+                    </a>
+                    <a href="/logout" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt"></i> Выйти
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="main">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="admin-stats">
+                <div class="admin-stat-card glass">
+                    <h3><i class="fas fa-search"></i> Цифровой следователь</h3>
+                    <p>Просмотр транзакций, аудита и анализ деятельности</p>
+                </div>
+            </div>
+
+            <!-- Инструменты анализа -->
+            <div class="section fade-in">
+                <div class="section-header">
+                    <h2><i class="fas fa-chart-line"></i> Анализ транзакций</h2>
+                </div>
+                <div class="section-content">
+                    <form id="transactionAnalysis" class="analysis-form">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="dateFrom">С даты</label>
+                                <input type="date" id="dateFrom">
+                            </div>
+                            <div class="form-group">
+                                <label for="dateTo">По дату</label>
+                                <input type="date" id="dateTo">
+                            </div>
+                            <div class="form-group">
+                                <label for="minAmount">Сумма от</label>
+                                <input type="number" id="minAmount" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="maxAmount">Сумма до</label>
+                                <input type="number" id="maxAmount" placeholder="1000000">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i> Анализировать
+                        </button>
+                    </form>
+                    
+                    <div id="analysisResults" class="analysis-results"></div>
+                </div>
+            </div>
+
+            <!-- Быстрый поиск -->
+            <div class="section fade-in">
+                <div class="section-header">
+                    <h2><i class="fas fa-user-secret"></i> Поиск подозрительной активности</h2>
+                </div>
+                <div class="section-content">
+                    <div class="quick-search">
+                        <button onclick="searchLargeTransactions()" class="btn btn-warning">
+                            <i class="fas fa-money-bill-wave"></i> Крупные транзакции
+                        </button>
+                        <button onclick="searchFrequentTransactions()" class="btn btn-warning">
+                            <i class="fas fa-sync-alt"></i> Частые операции
+                        </button>
+                        <button onclick="searchUnusualActivity()" class="btn btn-warning">
+                            <i class="fas fa-exclamation-triangle"></i> Необычная активность
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <style>
+    .analysis-form {
+        margin-bottom: 2rem;
+    }
+    
+    .analysis-results {
+        margin-top: 2rem;
+        padding: 1.5rem;
+        background: rgba(255,255,255,0.05);
+        border-radius: var(--radius);
+        display: none;
+    }
+    
+    .analysis-results.active {
+        display: block;
+    }
+    
+    .quick-search {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    .quick-search .btn {
+        flex: 1;
+        min-width: 200px;
+    }
+    
+    .role-badge.investigator {
+        background: linear-gradient(135deg, #3498db, #2980b9);
+        color: white;
+    }
+    </style>
+
+    <script>
+    document.getElementById('transactionAnalysis').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const dateFrom = document.getElementById('dateFrom').value;
+        const dateTo = document.getElementById('dateTo').value;
+        const minAmount = document.getElementById('minAmount').value;
+        const maxAmount = document.getElementById('maxAmount').value;
+        
+        try {
+            const response = await fetch('/admin/api/analyze_transactions', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    date_from: dateFrom,
+                    date_to: dateTo,
+                    min_amount: minAmount,
+                    max_amount: maxAmount
+                })
+            });
+            
+            const data = await response.json();
+            displayAnalysisResults(data);
+        } catch (error) {
+            console.error('Ошибка анализа:', error);
+        }
+    });
+    
+    function displayAnalysisResults(data) {
+        const resultsDiv = document.getElementById('analysisResults');
+        resultsDiv.classList.add('active');
+        
+        if (data.error) {
+            resultsDiv.innerHTML = `<p class="error">${data.error}</p>`;
+            return;
+        }
+        
+        let html = '<h3>Результаты анализа</h3>';
+        
+        if (data.summary) {
+            html += `<div class="summary">
+                <p>Найдено транзакций: ${data.summary.count || 0}</p>
+                <p>Общая сумма: ${data.summary.total_amount || 0} ₽</p>
+                <p>Средняя сумма: ${data.summary.average_amount || 0} ₽</p>
+            </div>`;
+        }
+        
+        if (data.transactions && data.transactions.length > 0) {
+            html += '<div class="table-container"><table class="users-table">';
+            html += '<thead><tr><th>Дата</th><th>От кого</th><th>Кому</th><th>Сумма</th><th>Описание</th></tr></thead><tbody>';
+            
+            data.transactions.forEach(t => {
+                html += `<tr>
+                    <td>${new Date(t.date).toLocaleString()}</td>
+                    <td>${t.from_account}</td>
+                    <td>${t.to_account}</td>
+                    <td>${t.amount} ₽</td>
+                    <td>${t.description || ''}</td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table></div>';
+        } else {
+            html += '<p class="no-data">Транзакции не найдены</p>';
+        }
+        
+        resultsDiv.innerHTML = html;
+    }
+    
+    async function searchLargeTransactions() {
+        try {
+            const response = await fetch('/admin/api/suspicious/large');
+            const data = await response.json();
+            displayAnalysisResults(data);
+        } catch (error) {
+            console.error('Ошибка поиска:', error);
+        }
+    }
+    
+    async function searchFrequentTransactions() {
+        try {
+            const response = await fetch('/admin/api/suspicious/frequent');
+            const data = await response.json();
+            displayAnalysisResults(data);
+        } catch (error) {
+            console.error('Ошибка поиска:', error);
+        }
+    }
+    
+    async function searchUnusualActivity() {
+        try {
+            const response = await fetch('/admin/api/suspicious/unusual');
+            const data = await response.json();
+            displayAnalysisResults(data);
+        } catch (error) {
+            console.error('Ошибка поиска:', error);
+        }
+    }
+    </script>
+</body>
+</html>

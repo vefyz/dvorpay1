@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оплата по NFC - DvorPay</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card glass fade-in">
+<div class="login-header">
+    <i class="fas fa-credit-card login-logo"></i>
+    <h1>NFC Оплата</h1>
+    {% if buyer %}
+        <p>Пользователь: {{ buyer.full_name }}</p>
+        <p>Счет: {{ buyer.account_number }}</p>
+        <p>Баланс: {{ buyer.balance }} ₽</p>
+    {% else %}
+        <p>Информация о пользователе недоступна</p>
+    {% endif %}
+</div>
+            
+            <div id="paymentFlow">
+                <!-- Шаг 1: Продавец вводит сумму -->
+                <div id="stepAmount" class="payment-step active">
+                    <h3><i class="fas fa-money-bill-wave"></i> Введите сумму</h3>
+                    <div class="form-group">
+                        <label for="amountInput">Сумма оплаты (руб.)</label>
+                        <input type="number" id="amountInput" placeholder="0.00" step="0.01" min="0.01">
+                    </div>
+                    <button onclick="setAmount()" class="btn btn-success" style="width: 100%;">
+                        <i class="fas fa-arrow-right"></i> Далее
+                    </button>
+                </div>
+                
+                <!-- Шаг 2: Покупатель вводит PIN -->
+                <div id="stepPin" class="payment-step">
+                    <h3><i class="fas fa-lock"></i> Введите PIN-код</h3>
+                    <div class="pin-container">
+                        <div class="pin-inputs">
+                            <input type="password" maxlength="1" class="pin-digit" data-index="1">
+                            <input type="password" maxlength="1" class="pin-digit" data-index="2">
+                            <input type="password" maxlength="1" class="pin-digit" data-index="3">
+                            <input type="password" maxlength="1" class="pin-digit" data-index="4">
+                        </div>
+                        <div class="pin-hint">
+                            <i class="fas fa-info-circle"></i>
+                            Введите 4-значный PIN-код
+                        </div>
+                    </div>
+                    <button onclick="confirmPayment()" class="btn btn-success" style="width: 100%; margin-top: 1rem;">
+                        <i class="fas fa-check"></i> Подтвердить оплату
+                    </button>
+                </div>
+                
+                <!-- Шаг 3: Результат -->
+                <div id="stepResult" class="payment-step">
+                    <div id="resultContent"></div>
+                </div>
+            </div>
+            
+            <div id="paymentStatus" class="payment-status">
+                <!-- Статус будет обновляться здесь -->
+            </div>
+        </div>
+    </div>
+    
+    <script>
+    const sessionId = "{{ session_id }}";
+    let currentStep = 1;
+    
+    function setAmount() {
+        const amount = document.getElementById('amountInput').value;
+        if (!amount || amount <= 0) {
+            alert('Введите корректную сумму');
+            return;
+        }
+        
+        fetch('/api/nfc/set_amount', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({session_id: sessionId, amount: amount})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showStep(2);
+                startPaymentPolling();
+            } else {
+                alert('Ошибка: ' + data.error);
+            }
+        });
+    }
+    
+    function confirmPayment() {
+        const pin = Array.from(document.querySelectorAll('.pin-digit'))
+                       .map(input => input.value)
+                       .join('');
+        
+        if (pin.length !== 4) {
+            alert('Введите 4 цифры PIN-кода');
+            return;
+        }
+        
+        fetch('/api/nfc/confirm_payment', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({session_id: sessionId, pin: pin})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showResult(true, `Оплата успешно завершена!<br>Списано: ${data.amount} руб.`);
+            } else {
+                showResult(false, 'Ошибка: ' + data.error);
+            }
+        });
+    }
+    
+    function showStep(step) {
+        document.querySelectorAll('.payment-step').forEach(el => {
+            el.classList.remove('active');
+        });
+        document.getElementById(`step${['Amount','Pin','Result'][step-1]}`).classList.add('active');
+        currentStep = step;
+    }
+    
+    function showResult(success, message) {
+        showStep(3);
+        const resultDiv = document.getElementById('resultContent');
+        resultDiv.innerHTML = `
+            <div class="result-icon">
+                <i class="fas fa-${success ? 'check-circle' : 'times-circle'}"></i>
+            </div>
+            <h3>${success ? 'Успешно!' : 'Ошибка'}</h3>
+            <p>${message}</p>
+            ${success ? '<p><small>Вы можете закрыть эту страницу</small></p>' : ''}
+        `;
+    }
+    
+    // Опрос статуса платежа
+    function startPaymentPolling() {
+        const interval = setInterval(() => {
+            fetch(`/api/nfc/status/${sessionId}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'paid') {
+                        showResult(true, `Оплата ${data.amount} руб. прошла успешно!`);
+                        clearInterval(interval);
+                    }
+                });
+        }, 2000);
+    }
+    
+    // Ввод PIN-кода с автопереходом
+    document.querySelectorAll('.pin-digit').forEach(input => {
+        input.addEventListener('input', (e) => {
+            if (e.target.value && e.target.dataset.index < 4) {
+                document.querySelector(`.pin-digit[data-index="${parseInt(e.target.dataset.index)+1}"]`).focus();
+            }
+        });
+        
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' && !e.target.value && e.target.dataset.index > 1) {
+                document.querySelector(`.pin-digit[data-index="${parseInt(e.target.dataset.index)-1}"]`).focus();
+            }
+        });
+    });
+    </script>
+    
+    <style>
+    .payment-step {
+        display: none;
+    }
+    
+    .payment-step.active {
+        display: block;
+        animation: fadeIn 0.3s ease;
+    }
+    
+    .pin-container {
+        text-align: center;
+    }
+    
+    .pin-inputs {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin: 20px 0;
+    }
+    
+    .pin-digit {
+        width: 50px;
+        height: 60px;
+        font-size: 24px;
+        text-align: center;
+        border: 2px solid var(--border-glass);
+        border-radius: 10px;
+        background: rgba(255,255,255,0.1);
+        color: white;
+    }
+    
+    .pin-digit:focus {
+        outline: none;
+        border-color: var(--secondary);
+    }
+    
+    .pin-hint {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        margin-top: 10px;
+    }
+    
+    .result-icon {
+        font-size: 4rem;
+        color: var(--success);
+        margin: 20px 0;
+    }
+    
+    .payment-status {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: var(--radius-sm);
+        background: rgba(255,255,255,0.05);
+        border: 1px solid var(--border-glass);
+        text-align: center;
+    }
+    </style>
+</body>
+</html>

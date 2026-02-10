@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Специальный администратор - DvorPay</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="header-content glass">
+                <a href="/admin" class="logo">
+                    <i class="fas fa-user-shield logo-icon"></i>
+                    <span class="logo-text">Специальный Админ</span>
+                </a>
+                
+                <div class="nav">
+                    <div class="user-info">
+                        <span class="user-name">{{ session.user_info.full_name }}</span>
+                        <span class="role-badge special-admin">Спецадмин</span>
+                    </div>
+                    <a href="/admin/users" class="btn btn-secondary">
+                        <i class="fas fa-users"></i> Пользователи
+                    </a>
+                    <a href="/admin/nfc" class="btn btn-secondary">
+                        <i class="fas fa-credit-card"></i> NFC-метки
+                    </a>
+                    <a href="/admin/business_applications" class="btn btn-secondary">
+                        <i class="fas fa-business-time"></i> Бизнесы
+                    </a>
+                    <a href="/admin/reports" class="btn btn-secondary">
+                        <i class="fas fa-chart-bar"></i> Отчеты
+                    </a>
+                    <a href="/admin/audit" class="btn btn-secondary">
+                        <i class="fas fa-history"></i> Аудит
+                    </a>
+                    <a href="/logout" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt"></i> Выйти
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="main">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="admin-stats">
+                <div class="admin-stat-card glass">
+                    <h3><i class="fas fa-user-tie"></i> Специальный администратор</h3>
+                    <p>Расширенные права управления системой</p>
+                </div>
+            </div>
+
+            <!-- Основные функции -->
+            <div class="section fade-in">
+                <div class="section-header">
+                    <h2><i class="fas fa-tools"></i> Доступные функции</h2>
+                </div>
+                <div class="section-content">
+                    <div class="function-grid">
+                        <a href="/admin/users/manage" class="function-card">
+                            <i class="fas fa-user-cog"></i>
+                            <h3>Управление пользователями</h3>
+                            <p>Редактирование, блокировка, смена паролей</p>
+                        </a>
+                        <a href="/admin/nfc/manage" class="function-card">
+                            <i class="fas fa-credit-card"></i>
+                            <h3>Управление NFC-метками</h3>
+                            <p>Регистрация, активация, отключение меток</p>
+                        </a>
+                        <a href="/admin/reports/financial" class="function-card">
+                            <i class="fas fa-chart-line"></i>
+                            <h3>Финансовые отчеты</h3>
+                            <p>Анализ транзакций и статистика</p>
+                        </a>
+                        <a href="/admin/audit/view" class="function-card">
+                            <i class="fas fa-clipboard-list"></i>
+                            <h3>Просмотр аудита</h3>
+                            <p>История действий пользователей</p>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <style>
+    .function-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .function-card {
+        background: rgba(255,255,255,0.05);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        text-decoration: none;
+        color: var(--text);
+        transition: var(--transition);
+        border: 1px solid var(--border-glass);
+    }
+    
+    .function-card:hover {
+        transform: translateY(-5px);
+        background: rgba(255,255,255,0.1);
+        border-color: var(--secondary);
+    }
+    
+    .function-card i {
+        font-size: 2.5rem;
+        color: var(--secondary);
+        margin-bottom: 1rem;
+    }
+    
+    .function-card h3 {
+        margin-bottom: 0.5rem;
+        font-size: 1.2rem;
+    }
+    
+    .function-card p {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+    
+    .role-badge.special-admin {
+        background: linear-gradient(135deg, #9b59b6, #8e44ad);
+        color: white;
+    }
+    </style>
+</body>
+</html>

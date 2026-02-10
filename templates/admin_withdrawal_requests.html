@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Заявки на вывод средств - DvorPay</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 1.5rem;
+            border-radius: var(--radius-sm);
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-glass);
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--text);
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .status-filter {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .request-item {
+            margin-bottom: 1rem;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            border: 1px solid var(--border-glass);
+        }
+        
+        .request-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .request-body {
+            padding: 1.5rem;
+            background: rgba(255,255,255,0.02);
+        }
+        
+        .request-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .info-field {
+            margin-bottom: 0.5rem;
+        }
+        
+        .info-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            display: block;
+        }
+        
+        .info-value {
+            color: var(--text);
+            font-weight: 600;
+        }
+        
+        .urgency-high {
+            border-left: 4px solid #ff6b6b;
+        }
+        
+        .urgency-medium {
+            border-left: 4px solid #ffd166;
+        }
+        
+        .urgency-low {
+            border-left: 4px solid #90ee90;
+        }
+        
+        @media (max-width: 768px) {
+            .request-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+            
+            .request-actions {
+                width: 100%;
+            }
+            
+            .request-actions .btn {
+                width: 100%;
+                margin-bottom: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="header-content glass">
+                <a href="/admin" class="logo">
+                    <i class="fas fa-university logo-icon"></i>
+                    <span class="logo-text">DvorPay</span>
+                </a>
+                
+                <div class="nav">
+                    <div class="user-info">
+                        <span class="user-name">{{ session.user_info.full_name }}</span>
+                    </div>
+                    <a href="/admin" class="btn btn-secondary">
+                        <i class="fas fa-tachometer-alt"></i>
+                        Панель управления
+                    </a>
+                    <a href="/admin/business_applications" class="btn btn-secondary">
+                        <i class="fas fa-building"></i>
+                        Заявки на бизнес
+                    </a>
+                    <a href="/logout" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Выйти
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="main">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="section fade-in">
+                <div class="section-header">
+                    <h2><i class="fas fa-money-bill-wave"></i> Заявки на вывод средств</h2>
+                    <div style="margin-left: auto;">
+                        <span class="status-badge {{ 'active' if status == 'pending' else 'secondary' }}">
+                            Ожидание: {{ requests|selectattr('status', 'equalto', 'pending')|list|length }}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="section-content">
+                    <!-- Статистика -->
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-number">{{ requests|selectattr('status', 'equalto', 'pending')|list|length }}</div>
+                            <div class="stat-label">Ожидают</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">{{ requests|selectattr('status', 'equalto', 'approved')|list|length }}</div>
+                            <div class="stat-label">Одобрены</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">{{ requests|selectattr('status', 'equalto', 'rejected')|list|length }}</div>
+                            <div class="stat-label">Отклонены</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">{{ requests|selectattr('status', 'equalto', 'processing')|list|length }}</div>
+                            <div class="stat-label">В обработке</div>
+                        </div>
+                    </div>
+
+                    <!-- Фильтры -->
+                    <div class="status-filter">
+                        <a href="/admin/withdrawal_requests?status=pending" 
+                           class="btn btn-sm {{ 'btn-primary' if status == 'pending' else 'btn-secondary' }}">
+                            <i class="fas fa-clock"></i> Ожидание
+                        </a>
+                        <a href="/admin/withdrawal_requests?status=approved" 
+                           class="btn btn-sm {{ 'btn-primary' if status == 'approved' else 'btn-secondary' }}">
+                            <i class="fas fa-check"></i> Одобрены
+                        </a>
+                        <a href="/admin/withdrawal_requests?status=rejected" 
+                           class="btn btn-sm {{ 'btn-primary' if status == 'rejected' else 'btn-secondary' }}">
+                            <i class="fas fa-times"></i> Отклонены
+                        </a>
+                        <a href="/admin/withdrawal_requests?status=processing" 
+                           class="btn btn-sm {{ 'btn-primary' if status == 'processing' else 'btn-secondary' }}">
+                            <i class="fas fa-cog"></i> В обработке
+                        </a>
+                        <a href="/admin/withdrawal_requests" 
+                           class="btn btn-sm {{ 'btn-primary' if not status else 'btn-secondary' }}">
+                            <i class="fas fa-list"></i> Все
+                        </a>
+                    </div>
+
+                    <!-- Список заявок -->
+                    {% if requests %}
+                        {% for request in requests %}
+                        <div class="request-item {{ 'urgency-high' if request.amount > 50000 else 'urgency-medium' if request.amount > 10000 else 'urgency-low' }}">
+                            <div class="request-header">
+                                <div>
+                                    <h3 style="margin: 0;">Заявка #{{ request.id }}</h3>
+                                    <p style="margin: 5px 0 0 0; color: var(--text-secondary); font-size: 0.9rem;">
+                                        {{ request.business_name }} • {{ request.account_number }}
+                                    </p>
+                                </div>
+                                
+                                <div class="request-info" style="text-align: right;">
+                                    <div>
+                                        <div class="info-value" style="font-size: 1.5rem; color: var(--secondary);">
+                                            {{ request.amount }} ₽
+                                        </div>
+                                        <div class="info-label">{{ request.created_at }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="request-body">
+                                <div class="request-info">
+                                    <div class="info-field">
+                                        <span class="info-label">Заявитель:</span>
+                                        <span class="info-value">{{ request.full_name }} ({{ request.passport }})</span>
+                                    </div>
+                                    
+                                    <div class="info-field">
+                                        <span class="info-label">Назначение:</span>
+                                        <span class="info-value">{{ request.purpose }}</span>
+                                    </div>
+                                    
+                                    <div class="info-field">
+                                        <span class="info-label">Статус:</span>
+                                        <span class="info-value">
+                                            {% if request.status == 'pending' %}
+                                                <span class="status-badge warning">На рассмотрении</span>
+                                            {% elif request.status == 'approved' %}
+                                                <span class="status-badge success">Одобрено</span>
+                                            {% elif request.status == 'rejected' %}
+                                                <span class="status-badge error">Отклонено</span>
+                                            {% else %}
+                                                <span class="status-badge info">В обработке</span>
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                    
+                                    {% if request.recipient_name %}
+                                    <div class="info-field">
+                                        <span class="info-label">Получатель:</span>
+                                        <span class="info-value">{{ request.recipient_name }}</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="request-actions">
+                                    <a href="/admin/withdrawal_requests/view/{{ request.id }}" class="btn btn-info">
+                                        <i class="fas fa-eye"></i>
+                                        Подробнее
+                                    </a>
+                                    
+                                    {% if request.status == 'pending' %}
+                                    <a href="/admin/withdrawal_requests/view/{{ request.id }}" class="btn btn-success">
+                                        <i class="fas fa-check"></i>
+                                        Обработать
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="no-data">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        <p>Заявок на вывод средств нет</p>
+                        {% if status %}
+                        <a href="/admin/withdrawal_requests" class="btn btn-secondary" style="margin-top: 1rem;">
+                            <i class="fas fa-list"></i>
+                            Показать все заявки
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    // Автоматическое обновление страницы каждые 60 секунд для раздела "ожидание"
+    {% if status == 'pending' %}
+    setTimeout(() => {
+        location.reload();
+    }, 60000);
+    {% endif %}
+    
+    // Подсветка крупных сумм
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.info-value').forEach(element => {
+            const text = element.textContent;
+            if (text.includes('₽')) {
+                const amount = parseFloat(text.replace(' ₽', '').replace(/\s/g, ''));
+                if (amount > 100000) {
+                    element.style.color = '#ff6b6b';
+                    element.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${text}`;
+                }
+            }
+        });
+    });
+    </script>
+</body>
+</html>

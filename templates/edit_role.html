@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактирование роли - DvorPay</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="header-content glass">
+                <a href="/admin" class="logo">
+                    <i class="fas fa-university logo-icon"></i>
+                    <span class="logo-text">DvorPay</span>
+                </a>
+                
+                <div class="nav">
+                    <div class="user-info">
+                        <span class="user-name">Суперадмин</span>
+                    </div>
+                    <a href="/admin" class="btn btn-secondary">
+                        <i class="fas fa-tachometer-alt"></i>
+                        Панель управления
+                    </a>
+                    <a href="/admin/roles" class="btn btn-secondary">
+                        <i class="fas fa-user-tag"></i>
+                        Роли
+                    </a>
+                    <a href="/logout" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Выйти
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="main">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="section fade-in">
+                <div class="section-header">
+                    <h2><i class="fas fa-edit"></i> Редактирование роли: {{ role.role_name }}</h2>
+                </div>
+                <div class="section-content">
+                    <form method="POST" action="/admin/roles/edit/{{ role.id }}" class="user-form">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="role_name">Название роли</label>
+                                <input type="text" id="role_name" name="role_name" value="{{ role.role_name }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="level">Уровень доступа (1-100)</label>
+                                <input type="number" id="level" name="level" value="{{ role.level }}" min="1" max="100" required>
+                                <small>Чем выше уровень, тем больше прав</small>
+                            </div>
+                            <div class="form-group form-group-full">
+                                <label for="description">Описание</label>
+                                <textarea id="description" name="description" rows="3">{{ role.description }}</textarea>
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <a href="/admin/roles" class="btn btn-secondary">
+                                <i class="fas fa-times"></i>
+                                Отмена
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save"></i>
+                                Сохранить изменения
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

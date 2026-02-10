@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Заявка на вывод средств - DvorPay</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .account-selector {
+            margin-bottom: 2rem;
+        }
+        
+        .account-option {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            background: rgba(255,255,255,0.05);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-glass);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .account-option:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateY(-2px);
+        }
+        
+        .account-option.selected {
+            background: rgba(0,212,170,0.1);
+            border-color: var(--secondary);
+        }
+        
+        .account-info {
+            flex: 1;
+        }
+        
+        .account-balance {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--secondary);
+        }
+        
+        input[type="radio"] {
+            display: none;
+        }
+        
+        .amount-input {
+            position: relative;
+        }
+        
+        .amount-input input {
+            padding-right: 60px;
+        }
+        
+        .currency-label {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+        
+        .amount-hint {
+            margin-top: 5px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+        
+        .balance-check {
+            margin-top: 1rem;
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            display: none;
+        }
+        
+        .balance-check.visible {
+            display: block;
+        }
+        
+        @media (max-width: 768px) {
+            .account-option {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            
+            .account-balance {
+                align-self: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="header-content glass">
+                <a href="/dashboard" class="logo">
+                    <i class="fas fa-university logo-icon"></i>
+                    <span class="logo-text">DvorPay</span>
+                </a>
+                
+                <div class="nav">
+                    <div class="user-info">
+                        <span class="user-name">{{ session.user_info.full_name }}</span>
+                    </div>
+                    <a href="/dashboard" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i>
+                        Назад
+                    </a>
+                    <a href="/logout" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Выйти
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="main">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="section fade-in">
+                <div class="section-header">
+                    <h2><i class="fas fa-money-check-alt"></i> Заявка на вывод средств</h2>
+                    <p>Вывод средств с бизнес-счета на расчетный счет</p>
+                </div>
+                
+                <div class="section-content">
+                    {% if accounts %}
+                    <form method="POST" action="/business/withdraw" class="user-form" id="withdrawForm">
+                        <!-- Выбор счета -->
+                        <div class="account-selector">
+                            <h3><i class="fas fa-credit-card"></i> Выберите бизнес-счет:</h3>
+                            {% for account in accounts %}
+                            <label class="account-option {{ 'selected' if loop.first else '' }}">
+                                <input type="radio" name="business_account_id" value="{{ account.id }}" 
+                                       {{ 'checked' if loop.first else '' }} data-balance="{{ account.balance }}">
+                                <div class="account-info">
+                                    <h4>{{ account.account_number }}</h4>
+                                    <p>{{ account.business_name }}</p>
+                                </div>
+                                <div class="account-balance">{{ account.balance }} ₽</div>
+                            </label>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Сумма вывода -->
+                        <div class="form-grid">
+                            <div class="form-group amount-input">
+                                <label for="amount">Сумма вывода *</label>
+                                <input type="number" id="amount" name="amount" 
+                                       placeholder="0.00" step="0.01" min="0.01" required>
+                                <span class="currency-label">₽</span>
+                                <div class="amount-hint">Минимальная сумма: 1,000 ₽</div>
+                                <div id="balanceCheck" class="balance-check">
+                                    <span id="balanceMessage"></span>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="purpose">Назначение платежа *</label>
+                                <input type="text" id="purpose" name="purpose" 
+                                       placeholder="Например: Закупка товара" required>
+                            </div>
+                        </div>
+
+                        <!-- Реквизиты получателя -->
+                        <div class="section fade-in">
+                            <div class="section-header" style="padding: 1rem 1.5rem;">
+                                <h3 style="margin: 0; font-size: 1.2rem;">
+                                    <i class="fas fa-user-circle"></i> Реквизиты получателя
+                                </h3>
+                            </div>
+                            <div class="section-content" style="padding: 1.5rem;">
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label for="recipient_name">ФИО получателя</label>
+                                        <input type="text" id="recipient_name" name="recipient_name" 
+                                               placeholder="Иванов Иван Иванович">
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="recipient_account">Счет получателя</label>
+                                        <input type="text" id="recipient_account" name="recipient_account" 
+                                               placeholder="Номер банковского счета">
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="recipient_bank">Банк получателя</label>
+                                        <input type="text" id="recipient_bank" name="recipient_bank" 
+                                               placeholder="Название банка">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Информация о комиссии -->
+                        <div class="info-card" style="background: rgba(255,193,7,0.05); border-color: rgba(255,193,7,0.3);">
+                            <h3><i class="fas fa-info-circle" style="color: #ffc107;"></i> Важная информация</h3>
+                            <ul style="color: var(--text-secondary); margin-left: 1.5rem;">
+                                <li>Заявка будет обработана в течение 1-3 рабочих дней</li>
+                                <li>Комиссия за вывод: 1.5% (минимум 50 ₽)</li>
+                                <li>Средства будут переведены на указанный счет после одобрения администратором</li>
+                                <li>Статус заявки можно отслеживать в разделе "Мои заявки"</li>
+                            </ul>
+                        </div>
+
+                        <div class="form-actions" style="margin-top: 2rem;">
+                            <a href="/dashboard" class="btn btn-secondary">
+                                <i class="fas fa-times"></i>
+                                Отмена
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-paper-plane"></i>
+                                Отправить заявку
+                            </button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <div class="no-data">
+                        <i class="fas fa-building"></i>
+                        <p>У вас нет активных бизнес-счетов</p>
+                        <a href="/business/apply" class="btn btn-primary" style="margin-top: 1rem;">
+                            <i class="fas fa-plus-circle"></i>
+                            Подать заявку на бизнес
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    // Проверка баланса при выборе счета и вводе суммы
+    document.addEventListener('DOMContentLoaded', function() {
+        const amountInput = document.getElementById('amount');
+        const balanceCheck = document.getElementById('balanceCheck');
+        const balanceMessage = document.getElementById('balanceMessage');
+        
+        function updateBalanceCheck() {
+            const selectedAccount = document.querySelector('input[name="business_account_id"]:checked');
+            const balance = parseFloat(selectedAccount ? selectedAccount.dataset.balance : 0);
+            const amount = parseFloat(amountInput.value) || 0;
+            
+            if (amount > 0) {
+                const commission = Math.max(amount * 0.015, 50); // 1.5% комиссия, минимум 50₽
+                const total = amount + commission;
+                
+                if (total > balance) {
+                    balanceCheck.className = 'balance-check visible';
+                    balanceMessage.innerHTML = `
+                        <i class="fas fa-exclamation-triangle" style="color: #ff6b6b;"></i>
+                        <strong>Недостаточно средств!</strong><br>
+                        Сумма с комиссией: ${total.toFixed(2)} ₽<br>
+                        Доступно: ${balance.toFixed(2)} ₽
+                    `;
+                    balanceCheck.style.background = 'rgba(220,53,69,0.1)';
+                    balanceCheck.style.border = '1px solid rgba(220,53,69,0.3)';
+                } else {
+                    balanceCheck.className = 'balance-check visible';
+                    balanceMessage.innerHTML = `
+                        <i class="fas fa-check-circle" style="color: #90ee90;"></i>
+                        <strong>Средств достаточно</strong><br>
+                        Сумма с комиссией: ${total.toFixed(2)} ₽<br>
+                        Доступно: ${balance.toFixed(2)} ₽
+                    `;
+                    balanceCheck.style.background = 'rgba(40,167,69,0.1)';
+                    balanceCheck.style.border = '1px solid rgba(40,167,69,0.3)';
+                }
+            } else {
+                balanceCheck.className = 'balance-check';
+            }
+        }
+        
+        // События для обновления проверки баланса
+        amountInput.addEventListener('input', updateBalanceCheck);
+        document.querySelectorAll('input[name="business_account_id"]').forEach(radio => {
+            radio.addEventListener('change', updateBalanceCheck);
+        });
+        
+        // Предзаполнение имени получателя
+        const userFullName = "{{ session.user_info.full_name }}";
+        const recipientNameInput = document.getElementById('recipient_name');
+        if (recipientNameInput && !recipientNameInput.value) {
+            recipientNameInput.value = userFullName;
+        }
+        
+        // Валидация формы
+        document.getElementById('withdrawForm').addEventListener('submit', function(e) {
+            const amount = parseFloat(amountInput.value);
+            const selectedAccount = document.querySelector('input[name="business_account_id"]:checked');
+            const balance = parseFloat(selectedAccount ? selectedAccount.dataset.balance : 0);
+            
+            if (amount < 1000) {
+                e.preventDefault();
+                alert('Минимальная сумма вывода - 1,000 ₽');
+                return false;
+            }
+            
+            if (amount > balance * 0.9) {
+                if (!confirm('Вы пытаетесь вывести более 90% от баланса. Продолжить?')) {
+                    e.preventDefault();
+                    return false;
+                }
+            }
+            
+            if (!confirm('Отправить заявку на вывод средств?')) {
+                e.preventDefault();
+                return false;
+            }
+            
+            return true;
+        });
+    });
+    </script>
+</body>
+</html>

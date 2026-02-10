@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Заявка на вывод #{{ request.id }} - DvorPay</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .request-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .summary-card {
+            padding: 1.5rem;
+            border-radius: var(--radius-sm);
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-glass);
+        }
+        
+        .summary-card.amount {
+            background: linear-gradient(135deg, rgba(0,212,170,0.1), rgba(44,90,160,0.1));
+            border-color: var(--secondary);
+        }
+        
+        .amount-display {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--secondary);
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .amount-label {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .detail-section {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            border-radius: var(--radius-sm);
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border-glass);
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .detail-label {
+            color: var(--text-secondary);
+            font-weight: 600;
+            min-width: 200px;
+        }
+        
+        .detail-value {
+            color: var(--text);
+            flex: 1;
+            text-align: right;
+        }
+        
+        .notes-input {
+            margin: 1.5rem 0;
+        }
+        
+        .notes-input textarea {
+            width: 100%;
+            padding: 1rem;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--border-glass);
+            color: var(--text);
+            font-size: 1rem;
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .action-buttons .btn {
+            width: 100%;
+            padding: 1rem;
+            font-size: 1.1rem;
+        }
+        
+        .history-item {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.03);
+            border-left: 4px solid var(--border-glass);
+        }
+        
+        .history-item.approved {
+            border-left-color: var(--success);
+            background: rgba(40,167,69,0.05);
+        }
+        
+        .history-item.rejected {
+            border-left-color: var(--danger);
+            background: rgba(220,53,69,0.05);
+        }
+        
+        @media (max-width: 768px) {
+            .detail-row {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .detail-label {
+                min-width: auto;
+            }
+            
+            .detail-value {
+                text-align: left;
+            }
+            
+            .action-buttons {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="header-content glass">
+                <a href="/admin" class="logo">
+                    <i class="fas fa-university logo-icon"></i>
+                    <span class="logo-text">DvorPay</span>
+                </a>
+                
+                <div class="nav">
+                    <div class="user-info">
+                        <span class="user-name">{{ session.user_info.full_name }}</span>
+                    </div>
+                    <a href="/admin/withdrawal_requests" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i>
+                        Назад к списку
+                    </a>
+                    <a href="/logout" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Выйти
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="main">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="section fade-in">
+                <div class="section-header">
+                    <h2><i class="fas fa-file-invoice-dollar"></i> Заявка на вывод #{{ request.id }}</h2>
+                    <div class="status-indicator">
+                        {% if request.status == 'pending' %}
+                            <span class="status-badge warning">На рассмотрении</span>
+                        {% elif request.status == 'approved' %}
+                            <span class="status-badge success">Одобрено</span>
+                        {% elif request.status == 'rejected' %}
+                            <span class="status-badge error">Отклонено</span>
+                        {% else %}
+                            <span class="status-badge info">В обработке</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="section-content">
+                    <!-- Сумма и основные данные -->
+                    <div class="request-summary">
+                        <div class="summary-card amount">
+                            <div class="amount-display">{{ request.amount }} ₽</div>
+                            <div class="amount-label">Сумма вывода</div>
+                        </div>
+                        
+                        <div class="summary-card">
+                            <h3><i class="fas fa-building"></i> Бизнес</h3>
+                            <div class="detail-row" style="border: none; padding: 0; margin: 10px 0;">
+                                <div>{{ request.business_name }}</div>
+                                <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                                    {{ request.account_number }}
+                                </div>
+                            </div>
+                            {% if request.legal_name %}
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                                {{ request.legal_name }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="summary-card">
+                            <h3><i class="fas fa-user"></i> Заявитель</h3>
+                            <div style="margin: 10px 0;">
+                                <div>{{ request.full_name }}</div>
+                                <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                                    {{ request.passport }}
+                                </div>
+                                {% if request.email %}
+                                <div style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 5px;">
+                                    <i class="fas fa-envelope"></i> {{ request.email }}
+                                </div>
+                                {% endif %}
+                                {% if request.phone %}
+                                <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                                    <i class="fas fa-phone"></i> {{ request.phone }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Детали заявки -->
+                    <div class="detail-section">
+                        <h3><i class="fas fa-info-circle"></i> Детали заявки</h3>
+                        
+                        <div class="detail-row">
+                            <span class="detail-label">Назначение платежа:</span>
+                            <span class="detail-value">{{ request.purpose }}</span>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <span class="detail-label">Дата подачи:</span>
+                            <span class="detail-value">{{ request.created_at }}</span>
+                        </div>
+                        
+                        {% if request.recipient_name %}
+                        <div class="detail-row">
+                            <span class="detail-label">Получатель:</span>
+                            <span class="detail-value">{{ request.recipient_name }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if request.recipient_account %}
+                        <div class="detail-row">
+                            <span class="detail-label">Счет получателя:</span>
+                            <span class="detail-value">{{ request.recipient_account }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if request.recipient_bank %}
+                        <div class="detail-row">
+                            <span class="detail-label">Банк получателя:</span>
+                            <span class="detail-value">{{ request.recipient_bank }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- История обработки -->
+                    {% if request.status != 'pending' %}
+                    <div class="detail-section">
+                        <h3><i class="fas fa-history"></i> История обработки</h3>
+                        
+                        <div class="history-item {{ request.status }}">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                <strong>
+                                    {% if request.status == 'approved' %}
+                                        <i class="fas fa-check-circle" style="color: #28a745;"></i> Заявка одобрена
+                                    {% elif request.status == 'rejected' %}
+                                        <i class="fas fa-times-circle" style="color: #dc3545;"></i> Заявка отклонена
+                                    {% else %}
+                                        <i class="fas fa-cog" style="color: #17a2b8;"></i> Заявка в обработке
+                                    {% endif %}
+                                </strong>
+                                <span style="color: var(--text-secondary); font-size: 0.9rem;">
+                                    {{ request.processed_at }}
+                                </span>
+                            </div>
+                            
+                            {% if request.processed_by_name %}
+                            <div style="color: var(--text-secondary); margin-top: 5px;">
+                                Обработал: {{ request.processed_by_name }}
+                            </div>
+                            {% endif %}
+                            
+                            {% if request.admin_notes %}
+                            <div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 5px;">
+                                <strong>Комментарий:</strong><br>
+                                {{ request.admin_notes }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Форма обработки (только для ожидающих заявок) -->
+                    {% if request.status == 'pending' %}
+                    <div class="detail-section" style="background: rgba(255,255,255,0.03);">
+                        <h3><i class="fas fa-gavel"></i> Обработка заявки</h3>
+                        
+                        <form method="POST" action="/admin/withdrawal_requests/process/{{ request.id }}">
+                            <div class="notes-input">
+                                <label for="admin_notes">Комментарий (опционально):</label>
+                                <textarea id="admin_notes" name="admin_notes" 
+                                          placeholder="Укажите дополнительную информацию или причину решения..."></textarea>
+                            </div>
+                            
+                            <div class="action-buttons">
+                                <button type="submit" name="action" value="approve" class="btn btn-success">
+                                    <i class="fas fa-check"></i>
+                                    Одобрить заявку
+                                </button>
+                                
+                                <button type="submit" name="action" value="reject" class="btn btn-danger">
+                                    <i class="fas fa-times"></i>
+                                    Отклонить заявку
+                                </button>
+                            </div>
+                            
+                            <div style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem; text-align: center;">
+                                <i class="fas fa-info-circle"></i>
+                                При одобрении средства будут списаны с бизнес-счета немедленно
+                            </div>
+                        </form>
+                    </div>
+                    {% endif %}
+
+                    <!-- Дополнительные действия -->
+                    <div class="detail-section">
+                        <h3><i class="fas fa-cogs"></i> Дополнительные действия</h3>
+                        
+                        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                            <button onclick="copyRequestDetails()" class="btn btn-secondary">
+                                <i class="fas fa-copy"></i>
+                                Копировать данные
+                            </button>
+                            
+                            <button onclick="printRequest()" class="btn btn-secondary">
+                                <i class="fas fa-print"></i>
+                                Распечатать
+                            </button>
+                            
+                            <a href="mailto:{{ request.email }}?subject=Заявка%20на%20вывод%20#{{ request.id }}" 
+                               class="btn btn-secondary" target="_blank">
+                                <i class="fas fa-envelope"></i>
+                                Отправить email
+                            </a>
+                            
+                            {% if request.status == 'pending' %}
+                            <button onclick="showTransactionHistory()" class="btn btn-info">
+                                <i class="fas fa-history"></i>
+                                История операций
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    // Копирование данных заявки
+    function copyRequestDetails() {
+        const details = `
+Заявка на вывод #{{ request.id }}
+Сумма: {{ request.amount }} ₽
+Бизнес: {{ request.business_name }}
+Счет: {{ request.account_number }}
+Заявитель: {{ request.full_name }} ({{ request.passport }})
+Назначение: {{ request.purpose }}
+Дата подачи: {{ request.created_at }}
+        `.trim();
+        
+        navigator.clipboard.writeText(details).then(() => {
+            alert('Данные заявки скопированы в буфер обмена');
+        });
+    }
+    
+    // Печать заявки
+    function printRequest() {
+        window.print();
+    }
+    
+    // Показать историю транзакций (заглушка)
+    function showTransactionHistory() {
+        alert('История транзакций будет загружена в отдельном окне');
+        // В реальном приложении здесь был бы AJAX запрос
+    }
+    
+    // Подтверждение при обработке заявки
+    document.querySelectorAll('button[type="submit"]').forEach(button => {
+        button.addEventListener('click', function(e) {
+            const action = this.value;
+            const amount = {{ request.amount }};
+            
+            if (action === 'approve') {
+                if (!confirm(`Вы уверены, что хотите одобрить вывод ${amount} ₽?\n\nСредства будут немедленно списаны со счета.`)) {
+                    e.preventDefault();
+                    return false;
+                }
+            } else if (action === 'reject') {
+                const notes = document.getElementById('admin_notes').value;
+                if (!notes && !confirm('Вы не указали причину отклонения. Продолжить без комментария?')) {
+                    e.preventDefault();
+                    return false;
+                }
+            }
+            
+            return true;
+        });
+    });
+    
+    // Подсветка крупных сумм
+    document.addEventListener('DOMContentLoaded', function() {
+        const amount = parseFloat({{ request.amount }});
+        const amountDisplay = document.querySelector('.amount-display');
+        
+        if (amount > 100000) {
+            amountDisplay.style.color = '#ff6b6b';
+            amountDisplay.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${amountDisplay.innerHTML}`;
+            
+            // Добавляем предупреждение для администратора
+            if ({{ 1 if request.status == 'pending' else 0 }}) {
+                const warning = document.createElement('div');
+                warning.className = 'alert alert-warning';
+                warning.innerHTML = `
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Внимание!</strong> Крупная сумма вывода. Рекомендуется дополнительная проверка.
+                `;
+                document.querySelector('.section-content').insertBefore(warning, document.querySelector('.request-summary'));
+            }
+        }
+    });
+    </script>
+</body>
+</html>

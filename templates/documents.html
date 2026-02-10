@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Мои документы - DvorPay{% endblock %}
+
+{% block nav_buttons %}
+    <a href="/dashboard" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i>
+        Назад
+    </a>
+    <a href="/logout" class="btn btn-danger">
+        <i class="fas fa-sign-out-alt"></i>
+        Выйти
+    </a>
+{% endblock %}
+
+{% block mobile_nav_buttons %}
+    <a href="/dashboard" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i>
+        Назад
+    </a>
+    <a href="/logout" class="btn btn-danger">
+        <i class="fas fa-sign-out-alt"></i>
+        Выйти
+    </a>
+{% endblock %}
+
+{% block content %}
+<div class="section glass fade-in">
+    <div class="section-header">
+        <h2><i class="fas fa-file-alt"></i> Мои документы</h2>
+    </div>
+    <div class="section-content">
+        <div class="documents-grid">
+            <div class="document-card glass-dark">
+                <div class="document-icon">
+                    <i class="fas fa-passport"></i>
+                </div>
+                <div class="document-details">
+                    <h3>Паспортные данные</h3>
+                    <div class="document-info">
+                        <div class="info-row">
+                            <span class="info-label">ФИО:</span>
+                            <span class="info-value">{{ user.full_name }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Номер паспорта:</span>
+                            <span class="info-value">{{ user.passport }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Дата рождения:</span>
+                            <span class="info-value">{{ user.date_of_birth or 'Не указано' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Место прописки:</span>
+                            <span class="info-value">{{ user.address or 'Не указано' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="document-card glass-dark">
+                <div class="document-icon">
+                    <i class="fas fa-credit-card"></i>
+                </div>
+                <div class="document-details">
+                    <h3>Банковские реквизиты</h3>
+                    <div class="document-info">
+                        <div class="info-row">
+                            <span class="info-label">Номер счета:</span>
+                            <span class="info-value">{{ user.account_number }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Тип счета:</span>
+                            <span class="info-value">Расчетный</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Валюта:</span>
+                            <span class="info-value">RUB (Российский рубль)</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Статус счета:</span>
+                            <span class="info-value {{ 'success' if user.is_active else 'error' }}">
+                                {{ 'Активен' if user.is_active else 'Заблокирован' }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .documents-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 2rem;
+        margin-top: 1rem;
+    }
+
+    .document-card {
+        display: flex;
+        padding: 2rem;
+        border-radius: 20px;
+        transition: transform 0.3s ease;
+    }
+
+    .document-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .document-icon {
+        font-size: 3rem;
+        margin-right: 1.5rem;
+        color: var(--primary-color);
+    }
+
+    .document-details h3 {
+        margin-bottom: 1.5rem;
+        color: var(--text-primary);
+        font-size: 1.4rem;
+    }
+
+    .document-info {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .info-label {
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+
+    .info-value {
+        color: var(--text-primary);
+        text-align: right;
+    }
+
+    @media (max-width: 768px) {
+        .documents-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .document-card {
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        .document-icon {
+            margin-right: 0;
+            margin-bottom: 1rem;
+        }
+        
+        .info-row {
+            flex-direction: column;
+            gap: 0.5rem;
+            text-align: center;
+        }
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Главный администратор - DvorPay</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="header-content glass">
+                <a href="/admin" class="logo">
+                    <i class="fas fa-crown logo-icon"></i>
+                    <span class="logo-text">Главный Админ</span>
+                </a>
+                
+                <div class="nav">
+                    <div class="user-info">
+                        <span class="user-name">{{ session.user_info.full_name }}</span>
+                        <span class="role-badge super-admin">Суперадмин</span>
+                    </div>
+                    <a href="/admin/users" class="btn btn-secondary">
+                        <i class="fas fa-users"></i> Пользователи
+                    </a>
+                    <a href="/admin/roles" class="btn btn-secondary">
+                        <i class="fas fa-user-tag"></i> Роли
+                    </a>
+                    <a href="/admin/nfc" class="btn btn-secondary">
+                        <i class="fas fa-credit-card"></i> NFC-метки
+                    </a>                        
+                    <a href="/admin/business_applications" class="btn btn-secondary">
+                        <i class="fas fa-business-time"></i> Бизнесы
+                    </a>
+                    <a href="/admin/withdrawal_requests" class="btn btn-secondary">
+                        <i class="fas fa-money-bill-wave"></i> Вывод средств
+                    </a>
+                    <a href="/admin/audit" class="btn btn-secondary">
+                        <i class="fas fa-history"></i> Аудит
+                    </a>
+                    <a href="/admin/system" class="btn btn-secondary">
+                        <i class="fas fa-cogs"></i> Система
+                    </a>
+                    <a href="/logout" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt"></i> Выйти
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="main">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="admin-stats">
+                <div class="admin-stat-card glass">
+                    <h3><i class="fas fa-user-shield"></i> Главный администратор</h3>
+                    <p>Полный доступ ко всем функциям системы</p>
+                </div>
+            </div>
+
+            <!-- Быстрый доступ -->
+            <div class="section fade-in">
+                <div class="section-header">
+                    <h2><i class="fas fa-bolt"></i> Быстрый доступ</h2>
+                </div>
+                <div class="section-content">
+                    <div class="quick-actions">
+                        <a href="/admin/add_user" class="quick-action glass">
+                            <i class="fas fa-user-plus"></i>
+                            <span>Добавить пользователя</span>
+                        </a>
+                        <a href="/admin/register_nfc" class="quick-action glass">
+                            <i class="fas fa-credit-card"></i>
+                            <span>Выдать NFC-метку</span>
+                        </a>
+                        <a href="/admin/transactions" class="quick-action glass">
+                            <i class="fas fa-exchange-alt"></i>
+                            <span>Все транзакции</span>
+                        </a>
+                        <a href="/admin/audit_logs" class="quick-action glass">
+                            <i class="fas fa-history"></i>
+                            <span>Логи системы</span>
+                        </a>
+
+                        <a href="/admin/business_applications" class="quick-action glass">
+                            <i class="fas fa-business-time"></i>
+                            <span>Бизнес-заявки</span>
+                        </a>
+                        <a href="/admin/withdrawal_requests" class="quick-action glass">
+                            <i class="fas fa-money-bill-wave"></i>
+                            <span>Заявки на вывод</span>
+                        </a>
+                        <a href="/admin/system_settings" class="quick-action glass">
+                            <i class="fas fa-cogs"></i>
+                            <span>Настройки</span>
+                        </a>
+                        <a href="/admin/backup" class="quick-action glass">
+                            <i class="fas fa-database"></i>
+                            <span>Резервная копия</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Статистика системы -->
+            <div class="section fade-in">
+                <div class="section-header">
+                    <h2><i class="fas fa-chart-bar"></i> Полная статистика</h2>
+                </div>
+                <div class="section-content">
+                    <div class="admin-stats">
+                        <div class="admin-stat-card glass">
+                            <h3>Пользователей</h3>
+                            <div class="admin-stat-number" id="totalUsers">0</div>
+                        </div>
+                        <div class="admin-stat-card glass">
+                            <h3>Активных сессий</h3>
+                            <div class="admin-stat-number" id="activeSessions">0</div>
+                        </div>
+                        <div class="admin-stat-card glass">
+                            <h3>Сегодняшние транзакции</h3>
+                            <div class="admin-stat-number" id="todayTransactions">0</div>
+                        </div>
+                        <div class="admin-stat-card glass">
+                            <h3>Общий баланс</h3>
+                            <div class="admin-stat-number" id="totalBalance">0 ₽</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Последние действия -->
+            <div class="section fade-in">
+                <div class="section-header">
+                    <h2><i class="fas fa-history"></i> Последние действия в системе</h2>
+                </div>
+                <div class="section-content">
+                    <div id="systemLogs"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <style>
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    
+    .quick-action {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 1.5rem;
+        border-radius: var(--radius);
+        text-decoration: none;
+        color: var(--text);
+        transition: var(--transition);
+        text-align: center;
+    }
+    
+    .quick-action:hover {
+        transform: translateY(-5px);
+        background: rgba(255,255,255,0.1);
+    }
+    
+    .quick-action i {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        color: var(--secondary);
+    }
+    
+    .quick-action span {
+        font-weight: 600;
+    }
+    
+    .role-badge.super-admin {
+        background: linear-gradient(135deg, #ffd700, #ff9900);
+        color: #000;
+        font-weight: bold;
+    }
+    </style>
+
+    <script>
+    // Загрузка статистики для суперадмина
+    async function loadSuperAdminStats() {
+        try {
+            const response = await fetch('/admin/api/super_stats');
+            const data = await response.json();
+            
+            document.getElementById('totalUsers').textContent = data.total_users || 0;
+            document.getElementById('activeSessions').textContent = data.active_sessions || 0;
+            document.getElementById('todayTransactions').textContent = data.today_transactions || 0;
+            document.getElementById('totalBalance').textContent = (data.total_balance || 0) + ' ₽';
+            
+            // Загрузка логов
+            const logsResponse = await fetch('/admin/api/system_logs');
+            const logs = await logsResponse.json();
+            
+            const logsDiv = document.getElementById('systemLogs');
+            if (logs.length > 0) {
+                let html = '<div class="table-container"><table class="users-table">';
+                html += '<thead><tr><th>Время</th><th>Пользователь</th><th>Действие</th><th>Детали</th></tr></thead><tbody>';
+                
+                logs.forEach(log => {
+                    html += `<tr>
+                        <td>${new Date(log.timestamp).toLocaleString()}</td>
+                        <td>${log.username || 'Система'}</td>
+                        <td>${log.action}</td>
+                        <td>${log.details || ''}</td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table></div>';
+                logsDiv.innerHTML = html;
+            } else {
+                logsDiv.innerHTML = '<p class="no-data">Нет записей</p>';
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки статистики:', error);
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', loadSuperAdminStats);
+    setInterval(loadSuperAdminStats, 30000);
+    </script>
+</body>
+</html>

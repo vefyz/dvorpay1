@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Детали NFC-метки - DvorPay</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .nfc-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .nfc-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .info-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: var(--radius-sm);
+            padding: 1.5rem;
+            border: 1px solid var(--border-glass);
+        }
+        
+        .info-card h3 {
+            margin-bottom: 1rem;
+            color: var(--secondary);
+            font-size: 1.1rem;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .info-label {
+            color: var(--text-secondary);
+        }
+        
+        .info-value {
+            font-weight: 600;
+            text-align: right;
+        }
+        
+        .transaction-filters {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .filter-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .filter-btn.active {
+            background: var(--secondary);
+            color: white;
+        }
+        
+        .transaction-stat {
+            background: rgba(255,255,255,0.05);
+            border-radius: var(--radius-sm);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--text);
+        }
+        
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        
+        .status-dot.active {
+            background: #90ee90;
+        }
+        
+        .status-dot.inactive {
+            background: #ff6b6b;
+        }
+        
+        .status-dot.locked {
+            background: #ffd166;
+        }
+        
+        @media (max-width: 768px) {
+            .nfc-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .nfc-actions {
+                width: 100%;
+            }
+            
+            .nfc-actions .btn {
+                flex: 1;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="header-content glass">
+                <a href="/admin" class="logo">
+                    <i class="fas fa-university logo-icon"></i>
+                    <span class="logo-text">DvorPay</span>
+                </a>
+                
+                <div class="nav">
+                    <div class="user-info">
+                        <span class="user-name">Администратор</span>
+                    </div>
+                    <a href="/admin" class="btn btn-secondary">
+                        <i class="fas fa-tachometer-alt"></i>
+                        Панель управления
+                    </a>
+                    <a href="/admin/nfc" class="btn btn-secondary">
+                        <i class="fas fa-credit-card"></i>
+                        NFC-метки
+                    </a>
+                    <a href="/logout" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Выйти
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="main">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Заголовок с действиями -->
+            <div class="nfc-header">
+                <div>
+                    <h1 style="margin-bottom: 0.5rem;">
+                        <i class="fas fa-credit-card"></i>
+                        NFC-метка: {{ nfc_tag.tag_uid }}
+                    </h1>
+                    <p style="color: var(--text-secondary);">
+                        Владелец: {{ nfc_tag.full_name }} ({{ nfc_tag.passport }})
+                    </p>
+                </div>
+                
+                <div class="nfc-actions">
+                    <a href="/admin/nfc" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Назад
+                    </a>
+                    <button onclick="copyNFCLink()" class="btn btn-info">
+                        <i class="fas fa-link"></i> Копировать ссылку
+                    </button>
+                </div>
+            </div>
+
+            <!-- Основная информация -->
+            <div class="info-grid">
+                <div class="info-card">
+                    <h3><i class="fas fa-id-card"></i> Информация о метке</h3>
+                    <div class="info-row">
+                        <span class="info-label">UID:</span>
+                        <span class="info-value">{{ nfc_tag.tag_uid }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Статус:</span>
+                        <span class="info-value">
+                            <span class="status-indicator">
+                                <span class="status-dot {{ 'active' if nfc_tag.is_active else 'inactive' }}"></span>
+                                {{ 'Активна' if nfc_tag.is_active else 'Неактивна' }}
+                            </span>
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Дата создания:</span>
+                        <span class="info-value">{{ nfc_tag.created_at }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Ссылка для оплаты:</span>
+                        <span class="info-value" style="font-size: 0.9em;">
+                            {{ request.host_url[:-1] }}{{ nfc_tag.tag_url }}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <h3><i class="fas fa-user"></i> Владелец</h3>
+                    <div class="info-row">
+                        <span class="info-label">ФИО:</span>
+                        <span class="info-value">{{ nfc_tag.full_name }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Паспорт:</span>
+                        <span class="info-value">{{ nfc_tag.passport }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Счет:</span>
+                        <span class="info-value">{{ nfc_tag.account_number }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Баланс:</span>
+                        <span class="info-value">{{ nfc_tag.balance }} ₽</span>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <h3><i class="fas fa-lock"></i> Безопасность</h3>
+                    {% if pin_info %}
+                    <div class="info-row">
+                        <span class="info-label">PIN-статус:</span>
+                        <span class="info-value">
+                            <span class="status-indicator">
+                                <span class="status-dot {{ 'active' if not pin_info.is_locked else 'locked' }}"></span>
+                                {{ 'Активен' if not pin_info.is_locked else 'Заблокирован' }}
+                            </span>
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Неудачных попыток:</span>
+                        <span class="info-value">{{ pin_info.attempts }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Последняя попытка:</span>
+                        <span class="info-value">{{ pin_info.last_attempt or 'Никогда' }}</span>
+                    </div>
+                    {% else %}
+                    <div class="info-row">
+                        <span class="info-label">PIN:</span>
+                        <span class="info-value" style="color: #ff6b6b;">Не установлен</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Статистика транзакций -->
+            {% if stats %}
+            <div class="info-grid">
+                <div class="transaction-stat">
+                    <div class="stat-value">{{ stats.total_transactions or 0 }}</div>
+                    <div class="stat-label">Всего транзакций</div>
+                </div>
+                <div class="transaction-stat">
+                    <div class="stat-value">{{ stats.total_sent or 0 }} ₽</div>
+                    <div class="stat-label">Всего отправлено</div>
+                </div>
+                <div class="transaction-stat">
+                    <div class="stat-value">{{ stats.total_received or 0 }} ₽</div>
+                    <div class="stat-label">Всего получено</div>
+                </div>
+                <div class="transaction-stat">
+                    <div class="stat-value">{{ stats.last_transaction or 'Нет операций' }}</div>
+                    <div class="stat-label">Последняя транзакция</div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Транзакции -->
+            <div class="section fade-in">
+                <div class="section-header">
+                    <h2><i class="fas fa-exchange-alt"></i> История транзакций</h2>
+                </div>
+                <div class="section-content">
+                    {% if transactions %}
+                    <div class="transaction-filters" id="transactionFilters">
+                        <button class="filter-btn active" onclick="filterTransactions('all')">Все</button>
+                        <button class="filter-btn" onclick="filterTransactions('incoming')">Входящие</button>
+                        <button class="filter-btn" onclick="filterTransactions('outgoing')">Исходящие</button>
+                    </div>
+                    
+                    <div class="table-container">
+                        <table class="users-table" id="transactionsTable">
+                            <thead>
+                                <tr>
+                                    <th>Дата</th>
+                                    <th>Тип</th>
+                                    <th>Отправитель</th>
+                                    <th>Получатель</th>
+                                    <th>Сумма</th>
+                                    <th>Статус</th>
+                                    <th>Описание</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for t in transactions %}
+                                <tr class="transaction-row {{ t.direction }}">
+                                    <td>{{ t.date }}</td>
+                                    <td>{{ t.type }}</td>
+                                    <td>
+                                        {{ t.from_name or t.from_account }}
+                                        <br><small>{{ t.from_account }}</small>
+                                    </td>
+                                    <td>
+                                        {{ t.to_name or t.to_account }}
+                                        <br><small>{{ t.to_account }}</small>
+                                    </td>
+                                    <td class="{{ 'outgoing' if t.direction == 'outgoing' else 'incoming' }}">
+                                        {{ t.amount }} ₽
+                                    </td>
+                                    <td>
+                                        <span class="status-badge {{ 'active' if t.status == 'Успешно' else 'blocked' }}">
+                                            {{ t.status }}
+                                        </span>
+                                    </td>
+                                    <td>{{ t.description or '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="no-data">
+                        <i class="fas fa-receipt"></i>
+                        <p>Нет транзакций по этой NFC-метке</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    // Копирование ссылки NFC
+    function copyNFCLink() {
+        const link = "{{ request.host_url[:-1] }}{{ nfc_tag.tag_url }}";
+        navigator.clipboard.writeText(link).then(() => {
+            alert('Ссылка скопирована в буфер обмена');
+        });
+    }
+    
+    // Фильтрация транзакций
+    function filterTransactions(type) {
+        // Обновляем активную кнопку
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+        
+        // Показываем/скрываем строки таблицы
+        const rows = document.querySelectorAll('.transaction-row');
+        rows.forEach(row => {
+            if (type === 'all' || row.classList.contains(type)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+    
+    // Автоматическое обновление страницы каждые 30 секунд
+    setTimeout(() => {
+        location.reload();
+    }, 30000);
+    </script>
+</body>
+</html>

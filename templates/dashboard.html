@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Личный кабинет - DvorPay{% endblock %}
+
+{% block nav_buttons %}
+    <a href="/documents" class="btn btn-info">
+        <i class="fas fa-file-alt"></i>
+        Мои документы
+    </a>
+    <a href="/change_password" class="btn btn-warning">
+        <i class="fas fa-key"></i>
+        Сменить пароль
+    </a>
+    <a href="/logout" class="btn btn-danger">
+        <i class="fas fa-sign-out-alt"></i>
+        Выйти
+    </a>
+{% endblock %}
+
+{% block mobile_nav_buttons %}
+    <a href="/documents" class="btn btn-info">
+        <i class="fas fa-file-alt"></i>
+        Мои документы
+    </a>
+    <a href="/change_password" class="btn btn-warning">
+        <i class="fas fa-key"></i>
+        Сменить пароль
+    </a>
+    <a href="/logout" class="btn btn-danger">
+        <i class="fas fa-sign-out-alt"></i>
+        Выйти
+    </a>
+{% endblock %}
+
+{% block content %}
+<!-- Quick Stats -->
+<div class="quick-stats">
+    <div class="stat-card glass primary">
+        <div class="stat-icon">
+            <i class="fas fa-wallet"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-label">Баланс</span>
+            <span class="stat-value">{{ user.balance }} Д</span>
+        </div>
+    </div>
+    
+    <div class="stat-card glass success">
+        <div class="stat-icon">
+            <i class="fas fa-credit-card"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-label">Номер счета</span>
+            <span class="stat-value">{{ user.account_number }}</span>
+        </div>
+    </div>
+    
+    <div class="stat-card glass info">
+        <div class="stat-icon">
+            <i class="fas fa-passport"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-label">Паспорт</span>
+            <span class="stat-value">{{ user.passport }}</span>
+        </div>
+    </div>
+
+    <div class="stat-card glass {{ 'warning' if not user.is_active else 'success' }}">
+        <div class="stat-icon">
+            <i class="fas fa-{{ 'lock' if not user.is_active else 'check-circle' }}"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-label">Статус счета</span>
+            <span class="stat-value">{{ 'Заблокирован' if not user.is_active else 'Активен' }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- Transfer Section -->
+<div class="section glass fade-in">
+    <div class="section-header">
+        <h2><i class="fas fa-exchange-alt"></i> Перевод средств</h2>
+    </div>
+    <div class="section-content">
+        <form id="transferForm" class="transfer-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="fromAccount">Счет отправителя</label>
+                    <input type="text" id="fromAccount" value="{{ user.account_number }}" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="toAccount">Счет получателя</label>
+                    <input type="text" id="toAccount" placeholder="Введите номер счета" required>
+                    <div id="recipientInfo" class="recipient-info"></div>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="amount">Сумма перевода</label>
+                    <input type="number" id="amount" placeholder="0.00" step="0.01" min="0.01" required>
+                </div>
+                <div class="form-group form-group-full">
+                    <label for="description">Описание</label>
+                    <input type="text" id="description" placeholder="Назначение платежа">
+                </div>
+            </div>
+            
+            <button type="submit" class="btn-transfer">
+                <i class="fas fa-paper-plane"></i>
+                Выполнить перевод
+            </button>
+        </form>
+        
+        <div id="transferResult" class="transfer-result"></div>
+    </div>
+</div>
+
+<!-- Recent Transactions -->
+<div class="section glass fade-in">
+    <div class="section-header">
+        <h2><i class="fas fa-history"></i> Последние операции</h2>
+    </div>
+    <div class="section-content">
+        <div class="transactions-list">
+            {% if transactions %}
+                {% for transaction in transactions %}
+                <div class="transaction-item {{ 'outgoing' if transaction.from_account == user.account_number else 'incoming' }}">
+                    <div class="transaction-icon">
+                        <i class="fas fa-{{ 'arrow-up' if transaction.from_account == user.account_number else 'arrow-down' }}"></i>
+                    </div>
+                    <div class="transaction-details">
+                        <div class="transaction-info">
+                            <span class="transaction-type">
+                                {{ 'Исходящий перевод' if transaction.from_account == user.account_number else 'Входящий перевод' }}
+                            </span>
+                            <span class="transaction-date">{{ transaction.date }}</span>
+                        </div>
+                        <div class="transaction-parties">
+                            <span class="transaction-account">
+                                {{ transaction.to_account if transaction.from_account == user.account_number else transaction.from_account }}
+                            </span>
+                            <span class="transaction-description">{{ transaction.description }}</span>
+                        </div>
+                    </div>
+                    <div class="transaction-amount {{ 'outgoing' if transaction.from_account == user.account_number else 'incoming' }}">
+                        {{ '-' if transaction.from_account == user.account_number else '+' }}{{ transaction.amount }} Д
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-data">
+                    <i class="fas fa-receipt"></i>
+                    <p>Операций пока нет</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('transferForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const fromAccount = document.getElementById('fromAccount').value;
+        const toAccount = document.getElementById('toAccount').value;
+        const amount = document.getElementById('amount').value;
+        const description = document.getElementById('description').value;
+        
+        const resultDiv = document.getElementById('transferResult');
+        resultDiv.innerHTML = '<div class="loading">Выполнение перевода...</div>';
+        
+        fetch('/transfer', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `from_account=${encodeURIComponent(fromAccount)}&to_account=${encodeURIComponent(toAccount)}&amount=${amount}&description=${encodeURIComponent(description)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                resultDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+                document.querySelector('.stat-value').textContent = data.new_balance + ' ₽';
+                document.getElementById('transferForm').reset();
+                document.getElementById('fromAccount').value = fromAccount;
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            } else {
+                resultDiv.innerHTML = `<div class="alert alert-error">${data.message}</div>`;
+            }
+        })
+        .catch(error => {
+            resultDiv.innerHTML = '<div class="alert alert-error">Ошибка соединения</div>';
+        });
+    });
+    
+    // Поиск получателя при вводе номера счета
+    document.getElementById('toAccount').addEventListener('input', function() {
+        const account = this.value;
+        const recipientInfo = document.getElementById('recipientInfo');
+        
+        if (account.length >= 3) {
+            fetch(`/get_user_by_account/${account}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        recipientInfo.innerHTML = `<span class="error">${data.error}</span>`;
+                    } else {
+                        recipientInfo.innerHTML = `<span class="success">${data.name}</span>`;
+                    }
+                })
+                .catch(() => {
+                    recipientInfo.innerHTML = '<span class="error">Ошибка поиска</span>';
+                });
+        } else {
+            recipientInfo.innerHTML = '';
+        }
+    });
+</script>
+{% endblock %}

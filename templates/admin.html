@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель - DvorPay</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="header-content glass">
+                <a href="/admin" class="logo">
+                    <i class="fas fa-university logo-icon"></i>
+                    <span class="logo-text">Банк DvorPay</span>
+                </a>
+                
+                <div class="nav">
+                    <div class="user-info">
+                        <span class="user-name">Администратор</span>
+                    </div>
+                    <a href="/admin/users" class="btn btn-secondary">
+                        <i class="fas fa-users"></i>
+                        Управление пользователями
+                    </a>
+                    <a href="/admin/nfc" class="btn btn-secondary">
+    <i class="fas fa-credit-card"></i>
+    NFC-метки
+</a>
+                    <a href="/logout" class="btn btn-danger">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Выйти
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="main">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Statistics -->
+            <div class="admin-stats">
+                <div class="admin-stat-card fade-in">
+                    <h3>Всего пользователей</h3>
+                    <div class="admin-stat-number">{{ users|length }}</div>
+                </div>
+                <div class="admin-stat-card fade-in">
+                    <h3>Заблокировано</h3>
+                    <div class="admin-stat-number">{{ users|selectattr('is_active', 'equalto', 0)|list|length }}</div>
+                </div>
+                <div class="admin-stat-card fade-in">
+                    <h3>Администраторов</h3>
+                    <div class="admin-stat-number">{{ users|selectattr('is_admin')|list|length }}</div>
+                </div>
+                <div class="admin-stat-card fade-in">
+                    <h3>Общий баланс</h3>
+                    <div class="admin-stat-number">{{ users|sum(attribute='balance') }} ₽</div>
+                </div>
+            </div>
+
+            <!-- Quick Money Transfer -->
+            <div class="section fade-in">
+                <div class="section-header">
+                    <h2><i class="fas fa-money-bill-wave"></i> Быстрое начисление средств</h2>
+                </div>
+                <div class="section-content">
+                    <form method="POST" action="/admin/add_money" class="money-form">
+                        <div class="form-group">
+                            <label for="account">Номер счета</label>
+                            <input type="text" id="account" name="account" placeholder="Введите номер счета" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="amount">Сумма</label>
+                            <input type="number" id="amount" name="amount" placeholder="0.00" step="0.01" min="0.01" required>
+                        </div>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-plus-circle"></i>
+                            Начислить
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Recent Users -->
+            <div class="section fade-in">
+                <div class="section-header">
+                    <h2><i class="fas fa-user-clock"></i> Недавно добавленные пользователи</h2>
+                </div>
+                <div class="section-content">
+                    <div class="table-container">
+                        <table class="users-table">
+                            <thead>
+                                <tr>
+                                    <th>ФИО</th>
+                                    <th>Паспорт</th>
+                                    <th>Счет</th>
+                                    <th>Баланс</th>
+                                    <th>Статус</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users[-5:] %}
+                                <tr class="{{ 'blocked' if not user.is_active else '' }} {{ 'admin-user' if user.is_admin else '' }}">
+                                    <td>{{ user.full_name }}</td>
+                                    <td>{{ user.passport }}</td>
+                                    <td>{{ user.account_number }}</td>
+                                    <td>{{ user.balance }} ₽</td>
+                                    <td>
+                                        {% if not user.is_active %}
+                                            <span class="status-badge blocked">Заблокирован</span>
+                                        {% else %}
+                                            <span class="status-badge active">Активен</span>
+                                        {% endif %}
+                                        {% if user.is_admin %}
+                                            <span class="role-badge admin">Админ</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

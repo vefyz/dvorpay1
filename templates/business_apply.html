@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Подача заявки на бизнес - DvorPay{% endblock %}
+
+{% block nav_buttons %}
+    <a href="/dashboard" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i>
+        Назад
+    </a>
+    <a href="/logout" class="btn btn-danger">
+        <i class="fas fa-sign-out-alt"></i>
+        Выйти
+    </a>
+{% endblock %}
+
+{% block content %}
+<div class="section fade-in">
+    <div class="section-header">
+        <h2><i class="fas fa-building"></i> Подача заявки на создание бизнеса</h2>
+    </div>
+    <div class="section-content">
+        <form method="POST" action="/business/apply" class="user-form">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="business_name">Название бизнеса *</label>
+                    <input type="text" id="business_name" name="business_name" 
+                           placeholder="ООО 'Рога и копыта'" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="legal_name">Юридическое название</label>
+                    <input type="text" id="legal_name" name="legal_name" 
+                           placeholder="Общество с ограниченной ответственностью...">
+                </div>
+                
+                <div class="form-group">
+                    <label for="charter_capital">Уставной капитал (₽) *</label>
+                    <input type="number" id="charter_capital" name="charter_capital" 
+                           placeholder="10000" min="10000" step="1000" required>
+                    <small>Минимум 10,000 ₽</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="tax_id">ИНН</label>
+                    <input type="text" id="tax_id" name="tax_id" 
+                           placeholder="12 цифр" pattern="[0-9]{12}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="address">Юридический адрес</label>
+                    <input type="text" id="address" name="address" 
+                           placeholder="г. Москва, ул. Примерная, д. 1">
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email для уведомлений</label>
+                    <input type="email" id="email" name="email" 
+                           placeholder="business@example.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="phone">Контактный телефон</label>
+                    <input type="tel" id="phone" name="phone" 
+                           placeholder="+79990000000">
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <a href="/dashboard" class="btn btn-secondary">
+                    <i class="fas fa-times"></i>
+                    Отмена
+                </a>
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-paper-plane"></i>
+                    Отправить заявку
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

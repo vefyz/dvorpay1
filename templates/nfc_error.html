@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ошибка NFC - DvorPay</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card glass fade-in">
+            <div class="login-header">
+                <i class="fas fa-exclamation-triangle login-logo" style="color: #ff6b6b;"></i>
+                <h1>Ошибка NFC</h1>
+            </div>
+            
+            <div class="error-content" style="text-align: center; padding: 2rem;">
+                <h3 style="color: #ff6b6b; margin-bottom: 1rem;">
+                    <i class="fas fa-times-circle"></i> {{ error }}
+                </h3>
+                <p>Пожалуйста, обратитесь к администратору системы.</p>
+                <a href="/" class="btn btn-primary" style="margin-top: 2rem;">
+                    <i class="fas fa-home"></i> На главную
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
