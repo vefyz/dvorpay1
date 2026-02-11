@@ -1350,10 +1350,20 @@ def admin_nfc():
             tag_uid = request.form.get('tag_uid', '').upper().strip()
             pin_code = request.form.get('pin_code', '0000')
             
+            # ДЕБАГ: Проверяем, что приходит из формы
+            print(f"🔍 DEBUG: user_id из формы: {user_id}")
+            print(f"🔍 DEBUG: tag_uid из формы: {tag_uid}")
+            print(f"🔍 DEBUG: action из формы: {action}")
+            
             if not user_id:
                 flash('Не выбран пользователь', 'error')
                 return redirect(url_for('admin_nfc'))
             
+            if not tag_uid:
+                flash('Введите UID NFC-метки', 'error')
+                return redirect(url_for('admin_nfc'))
+            
+            # Проверяем права доступа
             if session.get('role') not in ['super_admin', 'special_admin', 'admin']:
                 flash('У вас нет прав для регистрации NFC-меток', 'error')
                 return redirect(url_for('admin_nfc'))
@@ -1363,6 +1373,7 @@ def admin_nfc():
                 flash('NFC-метка с таким UID уже зарегистрирована', 'error')
                 return redirect(url_for('admin_nfc'))
             
+            # Создаем NFC-метку
             cursor = conn.cursor()
             tag_url = f"/nfc/pay/0/temp"
             cursor.execute('''
@@ -1371,24 +1382,32 @@ def admin_nfc():
             ''', (user_id, tag_uid, tag_url))
             nfc_tag_id = cursor.lastrowid
             
+            # Обновляем ссылку
             real_url = generate_nfc_url(nfc_tag_id)
             conn.execute('UPDATE nfc_tags SET tag_url = ? WHERE id = ?', (real_url, nfc_tag_id))
             
+            # Создаем PIN-код
             create_pin_for_nfc(user_id, nfc_tag_id, pin_code)
             
             conn.commit()
             
+            # Получаем имя пользователя для сообщения
             user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
-            flash(f'NFC-метка зарегистрирована для пользователя {user["full_name"]}. PIN: {pin_code}', 'success')
+            if user:
+                flash(f'NFC-метка зарегистрирована для пользователя {user["full_name"]}. PIN: {pin_code}', 'success')
+            else:
+                flash(f'NFC-метка зарегистрирована. PIN: {pin_code}', 'success')
     
+    # Получаем всех пользователей для выпадающего списка
     users = conn.execute('''
         SELECT u.id, u.full_name, u.passport, u.account_number, r.role_name
         FROM users u
         JOIN roles r ON u.role_id = r.id
-        WHERE u.is_active = 1
+        WHERE u.is_active = 1 AND r.role_name IN ('user', 'business')
         ORDER BY u.full_name
     ''').fetchall()
     
+    # Получаем NFC-метки
     nfc_tags = conn.execute('''
         SELECT n.*, u.full_name, u.account_number, r.role_name,
                up.attempts, up.is_locked, up.last_attempt
@@ -1400,6 +1419,10 @@ def admin_nfc():
     ''').fetchall()
     
     conn.close()
+    
+    print(f"🔍 DEBUG: Количество пользователей для формы: {len(users)}")
+    for user in users:
+        print(f"  - {user['id']}: {user['full_name']} ({user['role_name']})")
     
     return render_template('admin_nfc.html', 
                          nfc_tags=[dict(t) for t in nfc_tags], 
