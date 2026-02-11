@@ -1354,7 +1354,13 @@ def admin_nfc():
             print(f"🔍 DEBUG: user_id из формы: {user_id}")
             print(f"🔍 DEBUG: tag_uid из формы: {tag_uid}")
             print(f"🔍 DEBUG: action из формы: {action}")
-            
+            if not user_id:
+                # Если вдруг передали паспорт – найдём ID
+                passport = request.form.get('passport')
+                if passport:
+                    user = find_user_by_passport(passport)
+                    if user:
+                        user_id = user['id']
             if not user_id:
                 flash('Не выбран пользователь', 'error')
                 return redirect(url_for('admin_nfc'))
