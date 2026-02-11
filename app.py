@@ -32,7 +32,6 @@ def row_to_dict(row):
         return None
     return {key: row[key] for key in row.keys()}
 
-with app.app_context():
 def init_db():
     conn = get_db_connection()
     
