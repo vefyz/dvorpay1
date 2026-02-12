@@ -316,7 +316,12 @@ def init_db():
     conn.commit()
     conn.close()
     print("✅ База данных инициализирована")
-
+with app.app_context():
+    try:
+        init_db()
+        print("✅ База данных успешно инициализирована при старте")
+    except Exception as e:
+        print(f"❌ Ошибка инициализации БД: {e}")
 def find_user_by_passport(passport):
     conn = get_db_connection()
     user = conn.execute('''
