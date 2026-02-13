@@ -31,19 +31,20 @@ def row_to_dict(row):
     if row is None:
         return None
     return {key: row[key] for key in row.keys()}
-
 def init_db():
+    """Создаёт таблицы и начальные данные (работает и в PostgreSQL, и в SQLite)."""
     conn = get_db_connection()
-    
-    # Таблица пользователей
-    conn.execute('''
+    cur = conn.cursor()
+
+    # ----- Таблица пользователей -----
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             passport TEXT UNIQUE NOT NULL,
             full_name TEXT NOT NULL,
             account_number TEXT UNIQUE NOT NULL,
             balance REAL DEFAULT 0,
-            is_active BOOLEAN DEFAULT 1,
+            is_active BOOLEAN DEFAULT TRUE,
             role_id INTEGER DEFAULT 6,
             password_hash TEXT NOT NULL,
             email TEXT,
@@ -51,11 +52,11 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
-    # Таблица ролей
-    conn.execute('''
+
+    # ----- Таблица ролей -----
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS roles (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             role_name TEXT UNIQUE NOT NULL,
             level INTEGER NOT NULL,
             permissions TEXT,
@@ -63,11 +64,11 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
-    # Таблица транзакций
-    conn.execute('''
+
+    # ----- Таблица транзакций -----
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS transactions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             type TEXT NOT NULL,
             from_account TEXT NOT NULL,
@@ -75,15 +76,14 @@ def init_db():
             amount REAL NOT NULL,
             status TEXT NOT NULL,
             description TEXT,
-            user_id INTEGER,
-            FOREIGN KEY (user_id) REFERENCES users (id)
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL
         )
     ''')
-    
-    # Таблица аудита
-    conn.execute('''
+
+    # ----- Таблица аудита -----
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS audit_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             admin_passport TEXT NOT NULL,
             admin_name TEXT NOT NULL,
             action TEXT NOT NULL,
@@ -92,12 +92,12 @@ def init_db():
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
-    # Таблица бизнесов
-    conn.execute('''
+
+    # ----- Таблица бизнесов -----
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS businesses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             business_name TEXT NOT NULL,
             legal_name TEXT,
             tax_id TEXT UNIQUE,
@@ -105,108 +105,109 @@ def init_db():
             address TEXT,
             email TEXT,
             phone TEXT,
-            status TEXT DEFAULT 'pending', -- pending, approved, rejected
+            status TEXT DEFAULT 'pending',
             admin_notes TEXT,
-            approved_by INTEGER,
+            approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
             approved_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id),
-            FOREIGN KEY (approved_by) REFERENCES users (id)
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
-    # Таблица бизнес-счетов
-    conn.execute('''
+
+    # ----- Таблица бизнес-счетов -----
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS business_accounts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            business_id INTEGER NOT NULL,
+            id SERIAL PRIMARY KEY,
+            business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
             account_number TEXT UNIQUE NOT NULL,
-            account_type TEXT DEFAULT 'current', -- current, savings, etc.
+            account_type TEXT DEFAULT 'current',
             balance REAL DEFAULT 0,
             currency TEXT DEFAULT 'RUB',
-            is_active BOOLEAN DEFAULT 1,
+            is_active BOOLEAN DEFAULT TRUE,
             credit_limit REAL DEFAULT 0,
-            overdraft_allowed BOOLEAN DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (business_id) REFERENCES businesses (id)
+            overdraft_allowed BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
-    # Таблица заявок на вывод средств
-    conn.execute('''
+
+    # ----- Таблица заявок на вывод средств -----
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS withdrawal_requests (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            business_account_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL,
+            id SERIAL PRIMARY KEY,
+            business_account_id INTEGER NOT NULL REFERENCES business_accounts(id) ON DELETE CASCADE,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             amount REAL NOT NULL,
             purpose TEXT NOT NULL,
             recipient_name TEXT,
             recipient_account TEXT,
             recipient_bank TEXT,
-            status TEXT DEFAULT 'pending', -- pending, approved, rejected, processing
+            status TEXT DEFAULT 'pending',
             admin_notes TEXT,
-            processed_by INTEGER,
+            processed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
             processed_at TIMESTAMP,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (business_account_id) REFERENCES business_accounts (id),
-            FOREIGN KEY (user_id) REFERENCES users (id),
-            FOREIGN KEY (processed_by) REFERENCES users (id)
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
-    # Таблица NFC-меток (исправленная - привязка к обычным пользователям)
-    conn.execute('DROP TABLE IF EXISTS nfc_tags')
-    conn.execute('''
+
+    # ----- Таблица NFC-меток (привязка к обычным пользователям) -----
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS nfc_tags (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             tag_uid TEXT UNIQUE NOT NULL,
             tag_url TEXT NOT NULL,
-            is_active BOOLEAN DEFAULT 1,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id)
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
-    # Таблица PIN-кодов
-    conn.execute('DROP TABLE IF EXISTS user_pins')
-    conn.execute('''
+
+    # ----- Таблица PIN-кодов -----
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS user_pins (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            nfc_tag_id INTEGER NOT NULL,
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            nfc_tag_id INTEGER NOT NULL REFERENCES nfc_tags(id) ON DELETE CASCADE,
             pin_hash TEXT NOT NULL,
             pin_salt TEXT NOT NULL,
             attempts INTEGER DEFAULT 0,
             last_attempt TIMESTAMP,
-            is_locked BOOLEAN DEFAULT 0,
+            is_locked BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id),
-            FOREIGN KEY (nfc_tag_id) REFERENCES nfc_tags (id),
             UNIQUE(user_id, nfc_tag_id)
         )
     ''')
-    
-    # Таблица сессий оплаты
-    conn.execute('DROP TABLE IF EXISTS payment_sessions')
-    conn.execute('''
+
+    # ----- Таблица сессий оплаты -----
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS payment_sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             session_id TEXT UNIQUE NOT NULL,
-            buyer_id INTEGER NOT NULL,
-            seller_id INTEGER,
+            buyer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            seller_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
             amount REAL,
             status TEXT DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             expires_at TIMESTAMP,
-            completed_at TIMESTAMP,
-            FOREIGN KEY (buyer_id) REFERENCES users (id),
-            FOREIGN KEY (seller_id) REFERENCES users (id)
+            completed_at TIMESTAMP
         )
     ''')
-    
-    # Стандартные роли (добавляем бизнес-роль)
+
+    # ----- Индексы (для производительности) -----
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_users_passport ON users(passport)')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_users_account ON users(account_number)')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_transactions_accounts ON transactions(from_account, to_account)')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date)')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_nfc_tags_user ON nfc_tags(user_id)')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_nfc_tags_uid ON nfc_tags(tag_uid)')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_payment_sessions_session ON payment_sessions(session_id)')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_businesses_user ON businesses(user_id)')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_businesses_status ON businesses(status)')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_business_accounts_business ON business_accounts(business_id)')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_withdrawal_requests_status ON withdrawal_requests(status)')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_user_pins_lookup ON user_pins(user_id, nfc_tag_id)')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log(timestamp)')
+
+    # ----- Заполнение ролей (PostgreSQL: ON CONFLICT DO NOTHING) -----
     default_roles = [
         (1, 'super_admin', 100, '{"all_permissions": true}', 'Главный администратор'),
         (2, 'special_admin', 90, '{"manage_users": true, "manage_nfc": true, "view_reports": true, "audit_logs": true}', 'Специальный администратор'),
@@ -216,19 +217,19 @@ def init_db():
         (6, 'user', 10, '{"view_own_data": true, "make_payments": true}', 'Пользователь'),
         (7, 'business', 20, '{"view_own_data": true, "make_payments": true, "manage_business": true}', 'Бизнес-аккаунт')
     ]
-    
     for role_id, role_name, level, permissions, description in default_roles:
-        conn.execute('''
-            INSERT OR IGNORE INTO roles (id, role_name, level, permissions, description)
-            VALUES (?, ?, ?, ?, ?)
+        cur.execute('''
+            INSERT INTO roles (id, role_name, level, permissions, description)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO NOTHING
         ''', (role_id, role_name, level, permissions, description))
-    
-    # Создаем суперадмина
-    admin = conn.execute('SELECT * FROM users WHERE passport = ?', ('admin001',)).fetchone()
-    if not admin:
-        conn.execute('''
+
+    # ----- Суперадмин -----
+    cur.execute("SELECT * FROM users WHERE passport = 'admin001'")
+    if not cur.fetchone():
+        cur.execute('''
             INSERT INTO users (passport, full_name, account_number, balance, role_id, password_hash, email, phone)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         ''', (
             'admin001',
             'Главный Администратор',
@@ -240,8 +241,9 @@ def init_db():
             '+79998887766'
         ))
         print("✅ Создан суперадмин: admin001 / superadmin123")
-    
-    # Тестовые пользователи
+
+    # ----- Тестовые обычные пользователи (role_id = 6) -----
+    import random
     test_users = [
         ('special001', 'Специальный Админ', 'SPEC001', 50000, 2, 'special123'),
         ('admin002', 'Обычный Админ', 'ADMIN002', 30000, 3, 'admin123'),
@@ -250,72 +252,43 @@ def init_db():
         ('user002', 'Обычный Пользователь', 'USER002', 5000, 6, 'user123'),
         ('912312', 'КИЯМОВ КАРИМ МАРАТОВИЧ', f'ACC{random.randint(100000, 999999)}', 1000, 6, '123456')
     ]
-    
     for passport, full_name, account_number, balance, role_id, password in test_users:
-        existing = conn.execute('SELECT * FROM users WHERE passport = ?', (passport,)).fetchone()
-        if not existing:
-            conn.execute('''
+        cur.execute("SELECT * FROM users WHERE passport = %s", (passport,))
+        if not cur.fetchone():
+            cur.execute('''
                 INSERT INTO users (passport, full_name, account_number, balance, role_id, password_hash)
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s)
             ''', (passport, full_name, account_number, balance, role_id, generate_password_hash(password)))
             print(f"✅ Создан тестовый пользователь: {passport} / {password}")
-    
-    # Создаем тестовый бизнес для демонстрации
-    test_business_user = conn.execute('SELECT * FROM users WHERE passport = ?', ('user002',)).fetchone()
-    if test_business_user:
-        # Создаем тестовый бизнес
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT OR IGNORE INTO businesses (user_id, business_name, charter_capital, status, email, phone)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (
-            test_business_user['id'],
-            'Тестовый Бизнес ООО',
-            50000,
-            'approved',
-            'test_business@example.com',
-            '+79990000001'
-        ))
+
+    # ----- Тестовый бизнес -----
+    cur.execute("SELECT id FROM users WHERE passport = 'user002'")
+    user = cur.fetchone()
+    if user:
+        user_id = user['id'] if isinstance(user, dict) else user[0]
+        cur.execute('''
+            INSERT INTO businesses (user_id, business_name, charter_capital, status, email, phone)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (tax_id) DO NOTHING
+        ''', (user_id, 'Тестовый Бизнес ООО', 50000, 'approved', 'test_business@example.com', '+79990000001'))
         
-        business_id = cursor.lastrowid
-        
-        # Создаем бизнес-счет
-        cursor.execute('''
-            INSERT OR IGNORE INTO business_accounts (business_id, account_number, balance)
-            VALUES (?, ?, ?)
-        ''', (
-            business_id,
-            f'BUS{random.randint(100000, 999999)}',
-            50000
-        ))
-        
-        print("✅ Создан тестовый бизнес с балансом 50,000 ₽")
-    
-    # Удаляем старые индексы, если они существуют
-    try:
-        conn.execute('DROP INDEX IF EXISTS idx_nfc_tags_business')
-        conn.execute('DROP INDEX IF EXISTS idx_nfc_tags_user')
-    except:
-        pass
-    
-    # Создаем индексы
-    conn.execute('CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions (from_account, to_account)')
-    conn.execute('CREATE INDEX IF NOT EXISTS idx_nfc_tags_user ON nfc_tags (user_id)')
-    conn.execute('CREATE INDEX IF NOT EXISTS idx_payment_sessions_session ON payment_sessions (session_id)')
-    conn.execute('CREATE INDEX IF NOT EXISTS idx_payment_sessions_status ON payment_sessions (status)')
-    conn.execute('CREATE INDEX IF NOT EXISTS idx_payment_sessions_buyer ON payment_sessions (buyer_id)')
-    conn.execute('CREATE INDEX IF NOT EXISTS idx_payment_sessions_seller ON payment_sessions (seller_id)')
-    conn.execute('CREATE INDEX IF NOT EXISTS idx_businesses_user ON businesses (user_id)')
-    conn.execute('CREATE INDEX IF NOT EXISTS idx_businesses_status ON businesses (status)')
-    conn.execute('CREATE INDEX IF NOT EXISTS idx_business_accounts_business ON business_accounts (business_id)')
-    conn.execute('CREATE INDEX IF NOT EXISTS idx_withdrawal_requests_account ON withdrawal_requests (business_account_id)')
-    conn.execute('CREATE INDEX IF NOT EXISTS idx_withdrawal_requests_status ON withdrawal_requests (status)')
-    conn.execute('CREATE INDEX IF NOT EXISTS idx_user_pins_user_tag ON user_pins (user_id, nfc_tag_id)')
-    conn.execute('CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log (timestamp)')
-    
+        # Получим id бизнеса (последний вставленный)
+        cur.execute("SELECT id FROM businesses WHERE user_id = %s AND business_name = 'Тестовый Бизнес ООО'", (user_id,))
+        business_row = cur.fetchone()
+        if business_row:
+            business_id = business_row['id'] if isinstance(business_row, dict) else business_row[0]
+            cur.execute('''
+                INSERT INTO business_accounts (business_id, account_number, balance)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (account_number) DO NOTHING
+            ''', (business_id, f'BUS{random.randint(100000, 999999)}', 50000))
+            print("✅ Создан тестовый бизнес с балансом 50,000 ₽")
+
     conn.commit()
+    cur.close()
     conn.close()
-    print("✅ База данных инициализирована")
+    print("✅ База данных инициализирована (PostgreSQL)")
+    
 with app.app_context():
     try:
         init_db()
