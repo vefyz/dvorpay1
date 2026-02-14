@@ -2202,7 +2202,39 @@ def edit_role(role_id):
     conn.close()
     
     return render_template('edit_role.html', role=dict(role))
+@app.route('/debug/force_create_admin')
+def force_create_admin():
+    # Защита секретным ключом – замените на свой уникальный пароль
+    secret = request.args.get('secret')
+    if secret != 'мой_секретный_ключ_123':
+        return "Неавторизован", 401
 
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # Удаляем старого admin001, если он существует (чтобы избежать конфликта)
+    cur.execute("DELETE FROM users WHERE passport = 'admin001'")
+
+    # Создаём заново
+    cur.execute('''
+        INSERT INTO users (passport, full_name, account_number, balance, role_id, password_hash, email, phone)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+    ''', (
+        'admin001',
+        'Главный Администратор',
+        'SUPER001',
+        1000000,
+        1,
+        generate_password_hash('superadmin123'),
+        'superadmin@bank.ru',
+        '+79998887766'
+    ))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return "✅ Суперадмин создан. Логин: `admin001`, пароль: `superadmin123`"
 # ==================== ЗАПУСК ====================
 
 if __name__ == '__main__':
